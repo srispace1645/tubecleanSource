@@ -1,0 +1,106 @@
+{
+  "version": "2026.10.02-1",
+
+  "startUrl": "https://www.youtube.com/tv",
+  "tvPathMarker": "/tv",
+  "allowedHosts": ["www.youtube.com", "youtube.com", "m.youtube.com"],
+  "userAgents": [
+    "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/40.13031-qa (unlike Gecko) v8/8.8.278.8-jit gles Starboard/13",
+    "Mozilla/5.0 (Linux; Tizen 2.3) AppleWebKit/538.1 (KHTML, like Gecko)Version/2.3 TV Safari/538.1",
+    "Mozilla/5.0 (Web0S; Linux/SmartTV) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/79.0.3945.79 Safari/537.36 WebAppManager"
+  ],
+  "guestFlow": {
+    "welcomeSelector": "ytlr-welcome",
+    "startLabels": ["Get started"],
+    "guestLabels": ["Watch as guest", "Continue as guest", "Use without an account", "Guest"],
+    "guestItemSelector": "[role=menuitem], ytlr-account-selector [role=button]",
+    "maxSteps": 12,
+    "stepMs": 700
+  },
+  "unsupportedTextPatterns": ["browser is not supported", "unsupported browser", "update your browser", "not available on this device"],
+
+  "neverBlock": ["googlevideo.com/videoplayback", "googlevideo.com/initplayback"],
+  "adUrls": [
+    "doubleclick.net",
+    "googleadservices.com",
+    "googlesyndication.com",
+    "adservice.google.com",
+    "youtube.com/pagead/",
+    "youtube.com/api/stats/ads",
+    "youtube.com/get_midroll_",
+    "youtube.com/ptracking",
+    "youtube.com/pcs/activeview",
+    "youtube.com/youtubei/v1/player/ad_break"
+  ],
+  "trackerUrls": [
+    "google-analytics.com",
+    "googletagmanager.com",
+    "play.google.com/log",
+    "youtube.com/api/stats/qoe",
+    "youtube.com/api/stats/watchtime",
+    "youtube.com/api/stats/playback",
+    "youtube.com/api/stats/delayplay",
+    "youtube.com/api/stats/atr",
+    "youtube.com/youtubei/v1/log_event",
+    "youtube.com/csi_204"
+  ],
+  "signInUrls": [
+    "accounts.google.com",
+    "accounts.youtube.com",
+    "oauth2.googleapis.com",
+    "youtube.com/o/oauth2/",
+    "youtube.com/signin"
+  ],
+
+  "adDataKeys": ["adPlacements", "playerAds", "adSlots", "adBreakHeartbeatParams"],
+  "adCountKey": "adPlacements",
+  "ignoreAdLikeKeys": ["adSafetyReason"],
+
+  "watchRoutePattern": "[?&]v=([\\w-]{11})",
+  "playerSelectors": [".html5-video-player", "#movie_player", "ytlr-player"],
+  "adClassNames": ["ad-showing", "ad-interrupting"],
+  "adIndicatorSelectors": [".ytp-ad-player-overlay", ".ytp-ad-preview-container", "ytlr-ad-badge-renderer", "ytlr-player-ad-overlay-renderer"],
+  "skipButtonSelectors": [".ytp-skip-ad-button", ".ytp-ad-skip-button", ".ytp-ad-skip-button-modern", ".ytp-ad-skip-button-slot button", "ytlr-skip-button-renderer", "ytlr-skip-ad-renderer"],
+  "hideSelectors": [
+    "ytlr-ad-slot-renderer",
+    "ytlr-display-ad-renderer",
+    "ytlr-promoted-video-renderer",
+    "ytlr-masthead-ad-renderer",
+    "ytlr-statement-banner-renderer",
+    "ytlr-sign-in-promo-renderer",
+    "[aria-label*='Sign in' i]"
+  ],
+
+  "skipFailMs": 8000,
+  "playerProbeMs": 10000,
+  "siteProbeMs": 12000,
+  "maxSeekAdSeconds": 300,
+  "drmExitDelayMs": 1500,
+
+  "phone": {
+    "startUrl": "https://m.youtube.com/",
+    "tvPathMarker": "",
+    "userAgents": [],
+    "guestFlow": {},
+    "watchRoutePattern": "(?:[?&]v=|/shorts/)([\\w-]{11})",
+    "playerSelectors": ["#movie_player", ".html5-video-player"],
+    "adIndicatorSelectors": [".ytp-ad-player-overlay", ".ytp-ad-player-overlay-layout", ".ytp-ad-preview-container"],
+    "skipButtonSelectors": [".ytp-skip-ad-button", ".ytp-ad-skip-button", ".ytp-ad-skip-button-modern", ".ytp-ad-skip-button-slot button"],
+    "hideSelectors": [
+      "ad-slot-renderer",
+      "ytm-rich-item-renderer:has(> ad-slot-renderer)",
+      "ytm-promoted-sparkles-web-renderer",
+      "ytm-promoted-sparkles-text-search-renderer",
+      "ytm-promoted-video-renderer",
+      "ytm-companion-ad-renderer",
+      "ytm-companion-slot",
+      "ytm-statement-banner-renderer",
+      "ytm-mealbar-promo-renderer",
+      "ytm-banner-promo-renderer",
+      "ytm-brand-video-singleton-renderer",
+      "ytm-brand-video-shelf-renderer",
+      "ytm-button-renderer:has(> a[href^='intent:'])",
+      "a[href^='intent:']"
+    ]
+  }
+}

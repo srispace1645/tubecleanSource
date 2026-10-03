@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TubeClean</string>
+
+    <plurals name="badge">
+        <item quantity="one">🛡 %d ad blocked</item>
+        <item quantity="other">🛡 %d ads blocked</item>
+    </plurals>
+
+    <string name="no_widevine">This device has no Widevine DRM, so many popular and music videos won\'t play here (they stay on a black loading screen). Ads are still blocked.</string>
+    <string name="drm_blocked">This video is DRM-protected and can\'t play on this device. Going back.</string>
+    <string name="guest_only">Guest mode: sign-in is turned off in TubeClean.</string>
+    <string name="offline_title">Can\'t reach YouTube</string>
+    <string name="offline_message">Check this device\'s internet connection, then try again.</string>
+    <string name="retry">Retry</string>
+    <string name="exit">Exit</string>
+
+    <string name="revision_toast">TubeClean: the ad blocker may need revising. Press ☰ for details.</string>
+    <string name="revision_toast_phone">TubeClean: the ad blocker may need revising. Tap 🛡 for details.</string>
+    <string name="revision_title">Blocker needs revision</string>
+    <string name="revision_message">YouTube seems to have changed, and some ads may get through.\n\nProblems detected: %1$s</string>
+    <string name="revision_details">Show details</string>
+    <string name="revision_later">Remind me later</string>
+    <string name="revision_details_title">What to revise</string>
+
+    <string name="stats_title">TubeClean · Ads blocked</string>
+    <string name="stats_current">This video\n%1$d</string>
+    <string name="stats_today">Today\n%1$d ads · %2$d videos · %3$.1f per video\n%4$d ad/tracker requests refused</string>
+    <string name="stats_month">Last 30 days\n%1$d ads · %2$d videos · %3$.1f per video</string>
+    <string name="stats_trend">Daily trend, last 30 days</string>
+    <string name="stats_per_video">Ads blocked per video today:  %1$s</string>
+    <string name="stats_no_videos">No videos watched yet today.</string>
+    <string name="stats_rules">Rules version %1$s</string>
+    <string name="health_banner">⚠ Blocker needs revision: %1$s. Press to see what to change.</string>
+    <string name="reset">Reset stats</string>
+    <string name="reset_title">Reset stats?</string>
+    <string name="reset_message">This clears all ad-block counts for the last 30 days.</string>
+    <string name="back">Back</string>
+    <string name="stats_button">Ad-block stats</string>
+</resources>
