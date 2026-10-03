@@ -76,7 +76,14 @@ You need Android Studio. `install.ps1` uses its bundled JDK and the SDK at `%LOC
 - Android phones and tablets on **Android 5.1 or later**. Tested on an Android 17 phone emulator. The manifest's `leanback` requirement only filters app stores; sideloaded installs ignore it.
 - **Not** Amazon's **Vega OS** models, such as the Fire TV Stick 4K Select: Vega OS isn't Android, so it can't run this APK and doesn't allow sideloading. Not iPhone or iPad either.
 
-**Sharing it:** `gradlew assembleRelease` builds `app/build/outputs/apk/release/app-release.apk` (not debuggable, so no WebView inspection). Copy it to `dist/TubeClean-<version>.apk` and share a private link; Fire TV users install it with the Downloader app, phone users open the link in Chrome. It's signed with your debug key (`~/.android/debug.keystore`); back that file up, because updates only install over the old version when they're signed with the same key.
+**Sharing it:** builds are published from the public repo [`tubeclean-release`](https://github.com/srispace1645/tubeclean-release); this repo stays private.
+1. Bump `versionCode` and `versionName` in `app/build.gradle.kts`.
+2. Run `gradlew assembleRelease`. It builds `app/build/outputs/apk/release/app-release.apk`, which isn't debuggable, so its WebView can't be inspected.
+3. Create a release in `tubeclean-release` (tag `v<version>`) and attach the APK named exactly `TubeClean.apk`.
+
+`https://github.com/srispace1645/tubeclean-release/releases/latest/download/TubeClean.apk` then serves the new build, and so does the short link https://tinyurl.com/2bhzu5n3 that friends install from (Downloader on Fire TV and Android TV, Chrome on phones). Download counts are in `api.github.com/repos/srispace1645/tubeclean-release/releases` (`assets[].download_count`).
+
+Builds are signed with your debug key (`~/.android/debug.keystore`). Back that file up: updates only install over the old version when they're signed with the same key.
 
 1. On the Fire TV:
    1. Go to **Settings → My Fire TV → About** and click the device name 7 times. This turns on **Developer Options**.
