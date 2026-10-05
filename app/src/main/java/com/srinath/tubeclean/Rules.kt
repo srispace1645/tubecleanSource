@@ -7,7 +7,8 @@ import org.json.JSONObject
  * is normally an edit to that one file. See README, "Revising the rules".
  *
  * The top level describes the TV site. A [PHONE] section overrides any of those keys on phones
- * and tablets, which get YouTube's mobile site instead.
+ * and tablets, which get YouTube's mobile site instead. A [DESKTOP] section is for the Chrome
+ * extension (extension/) only; the app always removes it.
  */
 class Rules(
     val version: String,
@@ -26,11 +27,13 @@ class Rules(
 ) {
     companion object {
         const val PHONE = "phone"
+        const val DESKTOP = "desktop"
 
         fun parse(json: String, profile: String? = null): Rules {
             val o = JSONObject(json)
             val overrides = profile?.let { o.optJSONObject(it) }
             o.remove(PHONE)
+            o.remove(DESKTOP)
             overrides?.keys()?.forEach { key -> o.put(key, overrides.get(key)) }
 
             fun list(key: String): List<String> {

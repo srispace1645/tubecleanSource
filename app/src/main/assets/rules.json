@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.02-1",
+  "version": "2026.10.04-1",
 
   "startUrl": "https://www.youtube.com/tv",
   "tvPathMarker": "/tv",
@@ -101,6 +101,41 @@
       "ytm-brand-video-shelf-renderer",
       "ytm-button-renderer:has(> a[href^='intent:'])",
       "a[href^='intent:']"
+    ]
+  },
+
+  "desktop": {
+    "startUrl": "https://www.youtube.com/",
+    "tvPathMarker": "",
+    "userAgents": [],
+    "guestFlow": {},
+    "watchRoutePattern": "(?:[?&]v=|/shorts/)([\\w-]{11})",
+    "playerSelectors": ["#movie_player", ".html5-video-player"],
+    "adIndicatorSelectors": [".ytp-ad-player-overlay", ".ytp-ad-player-overlay-layout", ".ytp-ad-preview-container"],
+    "skipButtonSelectors": [".ytp-skip-ad-button", ".ytp-ad-skip-button", ".ytp-ad-skip-button-modern", ".ytp-ad-skip-button-slot button"],
+    "enforcementSelectors": ["ytd-enforcement-message-view-model"],
+    "hideSelectors": [
+      "ytd-ad-slot-renderer",
+      "ytd-in-feed-ad-layout-renderer",
+      "ytd-rich-item-renderer:has(ytd-ad-slot-renderer)",
+      "ytd-rich-section-renderer:has(ytd-statement-banner-renderer)",
+      "#masthead-ad",
+      "ytd-banner-promo-renderer",
+      "ytd-statement-banner-renderer",
+      "ytd-promoted-sparkles-web-renderer",
+      "ytd-promoted-video-renderer",
+      "ytd-display-ad-renderer",
+      "ytd-companion-slot-renderer",
+      "ytd-action-companion-ad-renderer",
+      "ytd-player-legacy-desktop-watch-ads-renderer",
+      "#player-ads",
+      "ytd-engagement-panel-section-list-renderer[target-id='engagement-panel-ads']",
+      "ytd-merch-shelf-renderer",
+      "ytd-mealbar-promo-renderer",
+      "ytd-guide-signin-promo-renderer",
+      "ytd-masthead #end ytd-button-renderer:has(a[href*='ServiceLogin'])",
+      "a[href*='accounts.google.com/ServiceLogin']",
+      "tp-yt-paper-dialog:has(ytd-enforcement-message-view-model)"
     ]
   }
 }

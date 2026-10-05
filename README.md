@@ -1,4 +1,4 @@
-# TubeClean: ad-free, guest-only YouTube for Fire TV and Android phones
+# TubeClean: ad-free, guest-only YouTube for Fire TV, Android phones and Chrome
 
 TubeClean is your own Android app. One APK covers both kinds of device:
 - **On a TV** (Fire TV, Android TV) it shows YouTube's official TV interface (`youtube.com/tv`) full-screen, driven by the remote.
@@ -145,6 +145,49 @@ The audit can't see traffic from outside the page, such as Android's DRM setup a
 - **Your router's DNS log**, if it has one: it lists every domain the TV looks up.
 - **A PC hotspot and Wireshark:** turn on Windows **Mobile hotspot**, connect the TV to it, and capture on the hotspot adapter. Filter with `ip.addr == <tv-ip>`, and add `dns` or `tls.handshake.extensions_server_name` to list destinations. The content stays encrypted; you see destinations and volumes.
 
+## Chrome extension (laptops)
+
+`extension/` brings the same blocking to desktop **www.youtube.com** in Chrome, or any Chromium browser such as Edge. It runs the app's own `prune.js` and `adskip.js` with the `desktop` section of `rules.json`, so a single rules revision fixes the app and the extension together.
+
+| App | Extension |
+|---|---|
+| `AdBlocker.kt` | `declarativeNetRequest` rules generated from `adUrls`, `trackerUrls`, `signInUrls` and `neverBlock`. They only apply to requests made by YouTube pages, so the rest of Chrome is untouched. |
+| Document-start scripts | Content scripts in the page's own world: `rules.js`, `src/bridge-shim.js` and `prune.js` in every frame; `adskip.js` and `src/enforcement.js` in the top frame |
+| `TubeCleanBridge` | `src/bridge-shim.js` posts each call to `src/relay.js`, which passes it to the service worker (`src/background.js`) |
+| `StatsStore.kt`, `HealthMonitor.kt` | `src/stats.js`, `src/health.js`, kept in `chrome.storage.local` |
+| ☰ stats screen, 🛡 badge, revision prompt | The toolbar popup. The icon's badge shows the ads blocked in the current video, or **!** when the rules need revising. |
+
+**Guest only, like the app:**
+- **Sign-in:** pages and endpoints are refused, but only when YouTube requests them. Gmail and other Google sign-ins keep working.
+- **Wipe:** YouTube's cookies, storage and cache are wiped when its last tab closes or leaves YouTube, when Chrome starts, and on install. If you were signed in to YouTube in Chrome, installing signs you out of YouTube only.
+- **History:** YouTube pages are deleted from Chrome's history as soon as they're added.
+- **Stats:** the only thing kept, as in the app.
+
+**Desktop's anti-adblock dialog.** `enforcementSelectors` (desktop section) finds YouTube's "Ad blockers are not allowed" dialog. The extension removes it and resumes the video, and `SITE_CHANGED` makes the popup show the revision banner.
+
+**Build and install:**
+```powershell
+node tools/build-extension.mjs
+```
+This writes `extension/dist/` and `build/TubeClean-chrome-<version>.zip`, using `versionName` from `app/build.gradle.kts`. To install:
+1. In Chrome, open `chrome://extensions`.
+2. Turn on **Developer mode**.
+3. Click **Load unpacked** and choose `extension/dist`.
+
+After a rules revision, rebuild and click the extension's reload button. To share it, attach the zip to the `tubeclean-release` release; friends unzip it and use **Load unpacked**.
+
+**Tests:** `node --test tools/*.test.mjs` checks:
+- the generated network rules against the real `rules.json`: what gets blocked, that `neverBlock` wins, that query strings can't cause a block
+- the desktop profile
+- the stats and health ports
+
+**Revising for desktop:** inspect youtube.com with DevTools.
+- Desktop-only selectors (`ytd-*`) go in the `desktop` section of `rules.json`.
+- URL lists and `adDataKeys` are shared with the app.
+- Bump `"version"` and rebuild.
+
+The `desktop` hide selectors are a starting set; confirm them against the live page.
+
 ## Project layout
 
 ```
@@ -162,4 +205,11 @@ app/src/main/java/.../MainActivity.kt   WebView shell, network blocking, remote 
                       StatsActivity.kt / TrendChartView.kt   Menu screen and chart
 tools/make-art.ps1                 regenerates the PNG app icon (all densities) and the TV banner
 tools/egress-audit.mjs             records and reports what the app's WebView sends out
+tools/build-extension.mjs          builds the Chrome extension from rules.json and the shared page scripts
+tools/extension-lib.mjs            desktop profile merge, rules.json -> declarativeNetRequest rules
+extension/manifest.json            Chrome extension manifest (matches and version filled in by the build)
+extension/src/background.js        service worker: stats, health, badge, guest-only wipe
+extension/src/bridge-shim.js, relay.js   page-to-extension bridge (stands in for TubeCleanBridge)
+extension/src/enforcement.js       removes YouTube's anti-adblock dialog
+extension/popup.*                  toolbar popup: stats, 30-day chart, revision banner
 ```

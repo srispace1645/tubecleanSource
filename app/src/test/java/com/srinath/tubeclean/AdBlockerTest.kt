@@ -85,6 +85,8 @@ class AdBlockerTest {
         assertFalse("the page sees only the effective rules", page.has(Rules.PHONE))
         assertTrue(page.getJSONArray("hideSelectors").toString().contains("ad-slot-renderer"))
         assertFalse(JSONObject(tv.rawJson).has(Rules.PHONE))
+        assertFalse("the Chrome extension's section never reaches the app", page.has(Rules.DESKTOP))
+        assertFalse(JSONObject(tv.rawJson).has(Rules.DESKTOP))
         val watch = Regex(page.getString("watchRoutePattern"))
         assertEquals("dQw4w9WgXcQ", watch.find("/shorts/dQw4w9WgXcQ")?.groupValues?.get(1))
         assertEquals("dQw4w9WgXcQ", watch.find("/watch?v=dQw4w9WgXcQ&t=1")?.groupValues?.get(1))

@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "TubeClean",
+  "description": "Ad-free, guest-only YouTube. Strips ads from the video data, skips any that slip through, and keeps no history.",
+  "version": "0",
+  "minimum_chrome_version": "111",
+  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": { "default_title": "TubeClean", "default_popup": "popup.html", "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png" } },
+  "background": { "service_worker": "src/background.js", "type": "module" },
+  "permissions": ["declarativeNetRequest", "declarativeNetRequestFeedback", "storage", "browsingData", "history", "alarms"],
+  "host_permissions": [],
+  "declarative_net_request": {
+    "rule_resources": [{ "id": "tubeclean", "enabled": true, "path": "dnr_rules.json" }]
+  },
+  "content_scripts": [
+    {
+      "matches": [],
+      "js": ["rules.js", "src/bridge-shim.js", "prune.js"],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [],
+      "js": ["adskip.js", "src/enforcement.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [],
+      "js": ["src/relay.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ]
+}
