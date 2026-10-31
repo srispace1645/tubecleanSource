@@ -13,15 +13,29 @@ android {
         applicationId = "com.srinath.tubeclean"
         minSdk = 22 // Fire OS 5 (Android 5.1), e.g. the 2015 Fire TV box and 2nd-gen Fire TV Stick
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.1"
+        versionCode = 3
+        versionName = "1.2"
+    }
+
+    signingConfigs {
+        // TubeClean's own key, kept outside the repo: the Android debug key that signed 1.0 (SHA-256
+        // 5C:CF:A4:61…). Sideloaded updates only install over it, so back the file up. Unlike
+        // ~/.android/debug.keystore, a missing file stops the build instead of quietly making a new key.
+        create("tubeclean") {
+            storeFile = file("${System.getProperty("user.home")}/.android/tubeclean.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("tubeclean")
+        }
         release {
-            isMinifyEnabled = false
-            // Sideloaded only. Updates must be signed with this same key, so back up ~/.android/debug.keystore.
-            signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = false // sideloaded only
+            signingConfig = signingConfigs.getByName("tubeclean")
         }
     }
 

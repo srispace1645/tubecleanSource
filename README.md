@@ -10,7 +10,7 @@ Either way it blocks ads inside the page. It uses no third-party player and no r
 
 | Layer | Where | How |
 |---|---|---|
-| 1. Network blocking | `AdBlocker.kt` | Refuses requests to ad and tracking endpoints (`adUrls`, `trackerUrls`). It never touches `googlevideo.com/videoplayback`. |
+| 1. Network blocking | `AdBlocker.kt` | Refuses requests to ad and tracking endpoints (`adUrls`, `trackerUrls`). It never touches `googlevideo.com/videoplayback`, or YouTube's bot check (`api/stats/atr`, `youtubei/v1/att/`): blocking the player's attestation answer makes YouTube ask to "sign in to confirm you're not a bot". |
 | 2. Cosmetic hiding | `adskip.js` | Hides ad tiles and banners (`hideSelectors`). |
 | 3. Ad skipper | `adskip.js` | If an ad still plays, mutes it, jumps to its end at 16× speed, and clicks Skip. |
 | 4. Ad-data stripping | `prune.js` | Deletes `adPlacements`/`playerAds`/`adSlots` from the video data before the player reads it, so ads are never scheduled. |
@@ -83,7 +83,7 @@ You need Android Studio. `install.ps1` uses its bundled JDK and the SDK at `%LOC
 
 `https://github.com/srispace1645/tubeclean-release/releases/latest/download/TubeClean.apk` then serves the new build, and so does the short link https://tinyurl.com/2bhzu5n3 that friends install from (Downloader on Fire TV and Android TV, Chrome on phones). Download counts are in `api.github.com/repos/srispace1645/tubeclean-release/releases` (`assets[].download_count`).
 
-Builds are signed with your debug key (`~/.android/debug.keystore`). Back that file up: updates only install over the old version when they're signed with the same key.
+Builds are signed with TubeClean's own key, `~/.android/tubeclean.keystore`: the Android debug key that signed 1.0 (SHA-256 `5C:CF:A4:61…`). Back that file up: updates only install over the old version when they're signed with the same key. If it's missing, the build stops rather than signing with a new key. On another PC, copy it to the same place. (Android Studio's shared `~/.android/debug.keystore` was regenerated on 2026-10-06, which is why TubeClean no longer uses it.)
 
 1. On the Fire TV:
    1. Go to **Settings → My Fire TV → About** and click the device name 7 times. This turns on **Developer Options**.

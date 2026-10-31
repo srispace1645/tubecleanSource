@@ -34,6 +34,20 @@ class AdBlockerTest {
         ).forEach { assertEquals(it, Verdict.TRACKER, blocker.classify(it)) }
     }
 
+    /** Swallowing the player's attestation answer makes YouTube ask to "sign in to confirm you're not a bot". */
+    @Test
+    fun neverBlocksBotCheck() {
+        val phone = AdBlocker(Rules.parse(json, Rules.PHONE))
+        listOf(
+            "https://www.youtube.com/api/stats/atr?ns=yt&el=leanback&cpn=x",
+            "https://www.youtube.com/youtubei/v1/att/get?prettyPrint=false",
+            "https://m.youtube.com/api/stats/atr?ns=yt&el=detailpage",
+        ).forEach {
+            assertEquals(it, Verdict.ALLOW, blocker.classify(it))
+            assertEquals(it, Verdict.ALLOW, phone.classify(it))
+        }
+    }
+
     @Test
     fun refusesSignIn() {
         listOf(
