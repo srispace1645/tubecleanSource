@@ -9,21 +9,24 @@
   <header>
     <img src="icons/icon48.png" alt="" width="24" height="24">
     <h1>TubeClean · Ads blocked</h1>
+    <span class="sites">YouTube · Tubi</span>
   </header>
 
   <section id="revision" class="revision" hidden>
     <h2>⚠ Blocker needs revision</h2>
     <p>YouTube seems to have changed, and some ads may get through.</p>
     <ul id="issues"></ul>
-    <p class="howto">To revise: open <code>app/src/main/assets/rules.json</code>, inspect youtube.com with DevTools,
-      fix the keys named above (desktop changes go in its <code>desktop</code> section), bump <code>"version"</code>,
-      then run <code>node tools/build-extension.mjs</code> and reload the extension.</p>
+    <p class="howto">To revise: inspect the site with DevTools and fix the keys named above, in
+      <code>app/src/main/assets/rules.json</code> for YouTube (its <code>desktop</code> section) or
+      <code>extension/tubi.json</code> for Tubi. Bump <code>"version"</code>, run
+      <code>node tools/build-extension.mjs</code> and reload the extension.</p>
     <button id="snooze" type="button">Remind me later</button>
   </section>
 
   <section id="notice" class="notice" hidden>
-    <p>Guest mode: sign-in is turned off on YouTube, and YouTube's cookies and history are wiped when you close
-      its last tab. You've been signed out of YouTube (not of Google).</p>
+    <p>Guest mode: sign-in is turned off on YouTube, and YouTube's history and site data are wiped when you close
+      its last tab. Only its guest ID is kept, for up to 10 days, so YouTube doesn't treat every visit as a new
+      guest. You've been signed out of YouTube (not of Google).</p>
     <button id="dismiss" type="button">OK</button>
   </section>
 
@@ -39,6 +42,9 @@
   <canvas id="chart" width="360" height="170" role="img"></canvas>
 
   <p class="line" id="perVideo"></p>
+
+  <p class="line guest"><span id="guest"></span>
+    <button id="cleanStart" type="button" class="link" title="Start a new YouTube guest now: drops YouTube's cookies and reloads YouTube tabs">Clean Start</button></p>
 
   <footer>
     <span id="rules"></span>

@@ -175,3 +175,29 @@ test('snooze hides the prompt for 24 h, and a new rules version clears everythin
   const revised = new HealthMonitor(h.toJSON(), 'v2', clock);
   assert.equal(revised.issues().length, 0);
 });
+
+// ---- Kept guest (port of GuestId.kt's rule) ------------------------------------------
+import { guestExpired, guestDay, GUEST_MAX_DAYS, isYouTubeSignInCookie } from '../extension/src/guest.js';
+
+test('the guest is kept for 10 days, then renewed; no guest or a clock going back means a new one', () => {
+  const start = Date.UTC(2026, 10, 1, 12);
+  assert.equal(GUEST_MAX_DAYS, 10);
+  assert.equal(guestExpired(0, start), true, 'no guest yet');
+  assert.equal(guestExpired(start, start), false);
+  assert.equal(guestExpired(start, start + 9.9 * DAY), false);
+  assert.equal(guestExpired(start, start + 10 * DAY), true);
+  assert.equal(guestExpired(start, start - 1000), true, 'clock went back');
+  assert.equal(guestDay(start, start + 2.5 * DAY), 3);
+  assert.equal(guestDay(start, start + 10 * DAY), 0);
+});
+
+test('only Google sign-in cookies on YouTube are removed; the guest ID stays', () => {
+  assert.equal(isYouTubeSignInCookie({ domain: '.youtube.com', name: 'LOGIN_INFO' }), true);
+  assert.equal(isYouTubeSignInCookie({ domain: '.youtube.com', name: '__Secure-3PSID' }), true);
+  assert.equal(isYouTubeSignInCookie({ domain: 'www.youtube.com', name: 'SID' }), true);
+  for (const name of ['VISITOR_INFO1_LIVE', 'YSC', 'PREF', 'VISITOR_PRIVACY_METADATA', '__Secure-YNID']) {
+    assert.equal(isYouTubeSignInCookie({ domain: '.youtube.com', name }), false, name);
+  }
+  assert.equal(isYouTubeSignInCookie({ domain: '.google.com', name: 'SID' }), false, 'Google itself is untouched');
+  assert.equal(isYouTubeSignInCookie({ domain: '.notyoutube.com', name: 'SID' }), false);
+});

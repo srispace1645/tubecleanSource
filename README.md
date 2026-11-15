@@ -15,12 +15,20 @@ Either way it blocks ads inside the page. It uses no third-party player and no r
 | 3. Ad skipper | `adskip.js` | If an ad still plays, mutes it, jumps to its end at 16× speed, and clicks Skip. |
 | 4. Ad-data stripping | `prune.js` | Deletes `adPlacements`/`playerAds`/`adSlots` from the video data before the player reads it, so ads are never scheduled. |
 
-**Guest only.** There's no sign-in: sign-in pages and endpoints (`signInUrls`) are refused. Every launch starts from wiped storage, so YouTube shows its welcome and account screens each time. The app gets past them automatically by pressing the remote keys for "Get started" and then "Watch as guest" (`guestFlow` in `rules.json`). A guest with no history gets an empty Home screen; use **Search**.
+**Guest only.** There's no sign-in: sign-in pages and endpoints (`signInUrls`) are refused. Every launch starts from wiped storage, so YouTube shows its welcome and account screens each time. The app gets past them automatically by pressing the remote keys for "Get started" and then "Watch as guest" (`guestFlow` in `rules.json`). A new guest gets an almost empty Home screen; use **Search**.
+
+**Guest ID and YouTube's bot check.** YouTube asks a brand-new guest to "sign in to confirm you're not a bot" before some stricter videos, such as official Formula 1 highlights, until the guest has watched an ordinary video. Tested on the Fire TV, 2026-11-06: removing all ad blocking didn't help; keeping YouTube's cookies between launches did. So (`GuestId.kt`):
+- YouTube's cookies, which hold the guest ID, are kept between launches. Everything else is still wiped (below).
+- A new guest starts every 10 days, or when you press **Clean Start** on the stats screen.
+- Once a new guest reaches the Home screen (`homeSelector`), the app suggests a short first video (`newGuestVideo`) with **Watch it** / **Not now**. Nothing plays unless the user picks it.
+- If YouTube asks anyway (`botCheckTextPatterns`), the app explains and goes back.
+
+While a guest is kept, YouTube can tell it's the same device coming back and may base its suggestions on what was watched there.
 
 **TV compatibility (`tvcompat.js`).** YouTube TV sends codec probes with deliberately impossible values (`width=99999`, `eotf=catavision`) to check that the device is a real TV. The shim answers them the way a TV does; without it, every video fails with "This video format is not supported". The app also allows Widevine DRM for YouTube pages only. Many popular and music videos reach TV clients DRM-protected.
 
 **No history, no data collection.**
-- Cookies, cache, local storage, IndexedDB, and search and watch history are wiped when the app starts and when you leave it (Home, another app, or the screensaver).
+- Cache, local storage, IndexedDB, and the app's search and browsing history are wiped when the app starts and when you leave it (Home, another app, or the screensaver). YouTube's cookies (the guest ID) are kept for up to 10 days; see above.
 - YouTube's watch-time and playback-stats pings are blocked.
 - The app makes no network calls of its own. Its only permission is internet access.
 
@@ -147,7 +155,7 @@ The audit can't see traffic from outside the page, such as Android's DRM setup a
 
 ## Chrome extension (laptops)
 
-`extension/` brings the same blocking to desktop **www.youtube.com** in Chrome, or any Chromium browser such as Edge. It runs the app's own `prune.js` and `adskip.js` with the `desktop` section of `rules.json`, so a single rules revision fixes the app and the extension together.
+`extension/` brings the same blocking to desktop **www.youtube.com** in Chrome, or any Chromium browser such as Edge, and also blocks ads on **tubitv.com** (see Tubi below). It runs the app's own `prune.js` and `adskip.js` with the `desktop` section of `rules.json`, so a single rules revision fixes the app and the extension together.
 
 | App | Extension |
 |---|---|
@@ -159,9 +167,24 @@ The audit can't see traffic from outside the page, such as Android's DRM setup a
 
 **Guest only, like the app:**
 - **Sign-in:** pages and endpoints are refused, but only when YouTube requests them. Gmail and other Google sign-ins keep working.
-- **Wipe:** YouTube's cookies, storage and cache are wiped when its last tab closes or leaves YouTube, when Chrome starts, and on install. If you were signed in to YouTube in Chrome, installing signs you out of YouTube only.
+- **Wipe:** YouTube's storage and cache are wiped when its last tab closes or leaves YouTube, and when Chrome starts. If you were signed in to YouTube in Chrome, installing signs you out of YouTube only.
+- **Kept guest (bot check):** as in the app, YouTube's cookies (the guest ID) are kept between sessions, because YouTube asks a brand-new guest to "sign in to confirm you're not a bot" before some videos (`src/guest.js`).
+  - A new guest starts every 10 days, or with **Clean Start** in the popup. Clean Start reloads open YouTube tabs.
+  - The popup shows the guest's day ("day 3 of 10").
+  - Google sign-in cookies (`SID`, `LOGIN_INFO`, ...) are removed from YouTube the moment they appear, so a kept guest never becomes a signed-in session. This needs the `cookies` permission.
+  - YouTube sets most guest cookies as *partitioned* cookies; the extension handles both kinds.
+  - If YouTube asks anyway (`botCheckTextPatterns`), a note on the page explains it and suggests watching another video first.
 - **History:** YouTube pages are deleted from Chrome's history as soon as they're added.
 - **Stats:** the only thing kept, as in the app.
+
+**Tubi (tubitv.com).** The extension also removes ads on Tubi, a free streaming service. Tubi doesn't stitch ads into the movie. Before each break, its player asks an ad service (Rainmaker) for a list of ads, then plays them around the movie.
+- `src/tubi.js` empties that list as the player reads it. The player then has nothing to play and carries on with the movie.
+- Tubi's ad-blocker check (`mcdn.tubitv.com/js/ads.js`) is left alone.
+- Tubi gets the same counts and badge as YouTube. It doesn't get guest mode or the wipe: those are YouTube-only.
+- Tubi's patterns live in `extension/tubi.json`, since the app doesn't cover Tubi.
+- If Tubi changes how it fetches ads, the popup shows `TUBI_CHANGED` and names the key to fix. Inspect the player's requests with DevTools, edit `tubi.json`, bump its `"version"` and rebuild.
+
+The extension doesn't work in the DuckDuckGo browser, which doesn't support extensions; use Chrome or Edge.
 
 **Desktop's anti-adblock dialog.** `enforcementSelectors` (desktop section) finds YouTube's "Ad blockers are not allowed" dialog. The extension removes it and resumes the video, and `SITE_CHANGED` makes the popup show the revision banner.
 
@@ -180,6 +203,7 @@ After a rules revision, rebuild and click the extension's reload button. To shar
 - the generated network rules against the real `rules.json`: what gets blocked, that `neverBlock` wins, that query strings can't cause a block
 - the desktop profile
 - the stats and health ports
+- the Tubi blocker, fed ad lists in Tubi's own format (`tools/tubi.test.mjs`)
 
 **Revising for desktop:** inspect youtube.com with DevTools.
 - Desktop-only selectors (`ytd-*`) go in the `desktop` section of `rules.json`.
@@ -199,7 +223,8 @@ app/src/main/java/.../MainActivity.kt   WebView shell, network blocking, remote 
                       TubeCleanApp.kt   TV or phone detection, rules profile
                       SystemBars.kt     phone theme with status and navigation bars
                       AdBlocker.kt      URL classification (layer 1)
-                      PrivacyGuard.kt   wipes all browsing data
+                      PrivacyGuard.kt   wipes browsing data (keeps YouTube's cookies while the guest is kept)
+                      GuestId.kt        guest age, 10-day renewal, Clean Start, first-video suggestion
                       StatsStore.kt     30-day ad counts
                       HealthMonitor.kt  revision detection
                       StatsActivity.kt / TrendChartView.kt   Menu screen and chart
@@ -209,7 +234,10 @@ tools/build-extension.mjs          builds the Chrome extension from rules.json a
 tools/extension-lib.mjs            desktop profile merge, rules.json -> declarativeNetRequest rules
 extension/manifest.json            Chrome extension manifest (matches and version filled in by the build)
 extension/src/background.js        service worker: stats, health, badge, guest-only wipe
+extension/src/guest.js             kept guest: 10-day renewal rule, sign-in cookie list
 extension/src/bridge-shim.js, relay.js   page-to-extension bridge (stands in for TubeCleanBridge)
 extension/src/enforcement.js       removes YouTube's anti-adblock dialog
+extension/src/tubi.js              Tubi: empties the ad list before the player reads it
+extension/tubi.json                Tubi's ad-service patterns (the extension's own rules file for Tubi)
 extension/popup.*                  toolbar popup: stats, 30-day chart, revision banner
 ```

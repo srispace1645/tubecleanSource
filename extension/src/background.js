@@ -3,11 +3,14 @@
  *  - receives bridge calls from the page scripts (counts and problem codes only)
  *  - keeps the 30-day stats and the health monitor in chrome.storage.local
  *  - shows ads blocked in the current video on the toolbar badge ("!" when the rules need revising)
+ *  - Tubi: same counting and badge (src/tubi.js); no wipe, guest-only is a YouTube feature
  *  - guest only: wipes YouTube's site data when the last YouTube tab closes and when Chrome starts,
+ *    keeping only its guest ID cookies for up to 10 days (src/guest.js), removes sign-in cookies,
  *    and keeps YouTube out of Chrome's history
  */
 import { StatsStore } from './stats.js';
 import { HealthMonitor } from './health.js';
+import { guestExpired, guestDay, GUEST_MAX_DAYS, isYouTubeSignInCookie } from './guest.js';
 
 const MAX_ADS_PER_EVENT = 50;
 const YT_ORIGINS = ['https://www.youtube.com', 'https://m.youtube.com', 'https://youtube.com'];
@@ -23,6 +26,11 @@ const isYouTube = (url) => {
   } catch (e) {
     return false;
   }
+};
+
+const TUBI_HOSTS = ['tubitv.com', 'www.tubitv.com'];
+const isTubi = (url) => {
+  try { return TUBI_HOSTS.includes(new URL(url).hostname); } catch (e) { return false; }
 };
 
 // ---- Build metadata ---------------------------------------------------------------
@@ -153,13 +161,45 @@ async function pollBlocked() {
 chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'poll-blocked') pollBlocked(); });
 
 // ---- Guest only: wipe YouTube's site data ----------------------------------------
-async function wipe(reason) {
+// YouTube asks a brand-new guest to "sign in to confirm you're not a bot" before some videos, and a
+// new guest every session kept hitting that. So, as in the app (GuestId.kt), YouTube's cookies (the
+// guest ID) are kept for up to GUEST_MAX_DAYS; everything else is wiped every session.
+async function wipe(reason, newGuest) {
   await chrome.browsingData.remove({ origins: YT_ORIGINS }, {
-    cookies: true, localStorage: true, indexedDB: true, cacheStorage: true,
+    cookies: newGuest, localStorage: true, indexedDB: true, cacheStorage: true,
     serviceWorkers: true, cache: true, fileSystems: true,
   });
-  console.info('TubeClean: wiped YouTube site data:', reason);
+  if (newGuest) await chrome.storage.local.set({ guestStartedAt: Date.now() });
+  await removeSignInCookies();
+  console.info('TubeClean: wiped YouTube site data:', reason, newGuest ? '(new guest)' : '(guest kept)');
 }
+
+/** End of a YouTube session: wipe, and start a new guest once the current one is too old. */
+async function endSession(reason) {
+  const { guestStartedAt = 0 } = await chrome.storage.local.get('guestStartedAt');
+  await wipe(reason, guestExpired(guestStartedAt, Date.now()));
+}
+
+// Sign-in is refused from YouTube pages, but a sign-in started elsewhere (e.g. on accounts.google.com)
+// could still hand YouTube its cookies. A kept guest must never become a signed-in session.
+// YouTube sets some cookies "Partitioned"; those are only seen and removed with their partitionKey.
+function removeCookie(c) {
+  const details = { url: `https://${c.domain.replace(/^\./, '')}${c.path}`, name: c.name, storeId: c.storeId };
+  if (c.partitionKey) details.partitionKey = c.partitionKey;
+  return chrome.cookies.remove(details).catch(() => {});
+}
+
+async function removeSignInCookies() {
+  const lists = await Promise.all([
+    chrome.cookies.getAll({ domain: 'youtube.com' }),
+    chrome.cookies.getAll({ domain: 'youtube.com', partitionKey: {} }).catch(() => []), // every partition
+  ]);
+  await Promise.all(lists.flat().filter(isYouTubeSignInCookie).map(removeCookie));
+}
+
+chrome.cookies.onChanged.addListener(({ removed, cookie }) => {
+  if (!removed && isYouTubeSignInCookie(cookie)) removeCookie(cookie);
+});
 
 async function markYouTubeOpen() {
   const { ytOpen } = await chrome.storage.session.get('ytOpen');
@@ -177,7 +217,7 @@ async function maybeWipe() {
   await chrome.storage.session.set({ ytOpen: false });
   chrome.alarms.clear('poll-blocked');
   await pollBlocked();
-  await wipe('last YouTube tab closed');
+  await endSession('last YouTube tab closed');
 }
 
 chrome.tabs.onRemoved.addListener((tabId) => {
@@ -193,6 +233,10 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
     markYouTubeOpen();
     return;
   }
+  if (tab.url && isTubi(tab.url)) {
+    maybeWipe(); // a YouTube tab may have gone to Tubi
+    return;
+  }
   withState((s) => {
     if (!s.tabs[tabId]) return;
     delete s.tabs[tabId]; // left YouTube: "this video" no longer applies
@@ -201,11 +245,18 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
   maybeWipe();
 });
 
-chrome.runtime.onStartup.addListener(() => wipe('Chrome started'));
+chrome.runtime.onStartup.addListener(() => endSession('Chrome started'));
 
 chrome.runtime.onInstalled.addListener(async ({ reason }) => {
+  if (reason === 'update') {
+    // Versions before the kept guest wiped the guest every session: keep the current one from now on.
+    const { guestStartedAt } = await chrome.storage.local.get('guestStartedAt');
+    if (!guestStartedAt) await chrome.storage.local.set({ guestStartedAt: Date.now() });
+    await removeSignInCookies();
+    return;
+  }
   if (reason !== 'install') return;
-  await wipe('installed');
+  await wipe('installed', true);
   // Anyone signed in to YouTube in Chrome is now signed out of YouTube (not of Google); the popup says so once.
   await chrome.storage.local.set({ installNotice: true });
 });
@@ -232,6 +283,13 @@ async function onPopup(msg) {
   if (msg.popup === 'get') await pollBlocked();
   const { installNotice } = await chrome.storage.local.get('installNotice');
   if (msg.popup === 'dismissNotice') await chrome.storage.local.remove('installNotice');
+  // Clean Start: a new guest now. Reloading YouTube tabs puts them on the new guest straight away.
+  if (msg.popup === 'cleanStart') {
+    await wipe('Clean Start', true);
+    const tabs = await chrome.tabs.query({ url: YT_TAB_PATTERNS });
+    tabs.forEach((t) => chrome.tabs.reload(t.id));
+  }
+  const { guestStartedAt = 0 } = await chrome.storage.local.get('guestStartedAt');
   return withState((s) => {
     if (msg.popup === 'snooze') s.health.snooze();
     if (msg.popup === 'reset') s.stats.reset();
@@ -244,6 +302,8 @@ async function onPopup(msg) {
       shouldPrompt: s.health.shouldPrompt(),
       rulesVersion: s.rulesVersion,
       installNotice: !!installNotice && msg.popup !== 'dismissNotice',
+      guestDay: guestDay(guestStartedAt, Date.now()),
+      guestMaxDays: GUEST_MAX_DAYS,
     };
   });
 }

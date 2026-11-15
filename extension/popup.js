@@ -7,6 +7,9 @@
   const ask = (popup) => chrome.runtime.sendMessage({ popup, tabId }).then(render);
   $('snooze').onclick = () => ask('snooze');
   $('dismiss').onclick = () => ask('dismissNotice');
+  $('cleanStart').onclick = () => {
+    if (confirm("Start a new YouTube guest now? YouTube's cookies are dropped and open YouTube tabs reload. A brand-new guest may be asked to confirm it's not a bot before some videos.")) ask('cleanStart');
+  };
   $('reset').onclick = () => { if (confirm('Reset stats? This clears all ad-block counts for the last 30 days.')) ask('reset'); };
   ask('get');
 
@@ -47,6 +50,9 @@
       return li;
     }));
     $('notice').hidden = !r.installNotice;
+    $('guest').textContent = r.guestDay
+      ? `YouTube guest: day ${r.guestDay} of ${r.guestMaxDays}`
+      : 'YouTube guest: new at the next visit';
     drawChart(r.month);
   }
 

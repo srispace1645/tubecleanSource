@@ -17,6 +17,7 @@ export const HINTS = {
   AD_DATA_CHANGED: 'An ad played although ad data was stripped (or none was found). Update "adDataKeys" / "adUrls".',
   AD_UNDETECTED: 'Video data has new ad-like fields (listed below). Add them to "adDataKeys", or to "ignoreAdLikeKeys" if harmless.',
   SITE_CHANGED: 'YouTube showed its ad-blocker warning or refused the page. Update "enforcementSelectors" / "hideSelectors".',
+  TUBI_CHANGED: 'Tubi changed how it fetches ads, so ads may play. Update extension/tubi.json (details below name the key).',
 };
 export const CODES = Object.keys(HINTS);
 

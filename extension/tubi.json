@@ -1,0 +1,18 @@
+{
+  "version": "2026.10.09-1",
+
+  "hosts": ["tubitv.com", "www.tubitv.com"],
+
+  "adDecisionUrls": [
+    "rainmaker.production-public.tubi.io/",
+    "rainmaker4.production-public.tubi.io/"
+  ],
+  "adListKey": "items",
+  "adItemKeys": ["ad_id", "media"],
+  "adCountFields": ["metadata.resultlength", "metadata.resultduration"],
+  "contentIdParam": "content_id",
+
+  "watchPathPattern": "^/(movies|tv-shows|series)/",
+  "minContentSeconds": 600,
+  "noDecisionProbeSeconds": 30
+}

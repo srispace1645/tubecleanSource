@@ -1,36 +1,100 @@
 {
   "manifest_version": 3,
   "name": "TubeClean",
-  "description": "Ad-free, guest-only YouTube. Strips ads from the video data, skips any that slip through, and keeps no history.",
+  "description": "Ad-free YouTube (guest only, no history) and ad-free Tubi. Strips ads from the video data before the player sees them.",
   "version": "0",
   "minimum_chrome_version": "111",
-  "icons": { "16": "icons/icon16.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
-  "action": { "default_title": "TubeClean", "default_popup": "popup.html", "default_icon": { "16": "icons/icon16.png", "48": "icons/icon48.png" } },
-  "background": { "service_worker": "src/background.js", "type": "module" },
-  "permissions": ["declarativeNetRequest", "declarativeNetRequestFeedback", "storage", "browsingData", "history", "alarms"],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_title": "TubeClean",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "storage",
+    "browsingData",
+    "history",
+    "alarms",
+    "cookies"
+  ],
   "host_permissions": [],
   "declarative_net_request": {
-    "rule_resources": [{ "id": "tubeclean", "enabled": true, "path": "dnr_rules.json" }]
+    "rule_resources": [
+      {
+        "id": "tubeclean",
+        "enabled": true,
+        "path": "dnr_rules.json"
+      }
+    ]
   },
   "content_scripts": [
     {
-      "matches": [],
-      "js": ["rules.js", "src/bridge-shim.js", "prune.js"],
+      "matches": [
+        "<youtube>"
+      ],
+      "js": [
+        "rules.js",
+        "src/bridge-shim.js",
+        "prune.js"
+      ],
       "world": "MAIN",
       "run_at": "document_start",
       "all_frames": true
     },
     {
-      "matches": [],
-      "js": ["adskip.js", "src/enforcement.js"],
+      "matches": [
+        "<youtube>"
+      ],
+      "js": [
+        "adskip.js",
+        "src/enforcement.js"
+      ],
       "world": "MAIN",
       "run_at": "document_start"
     },
     {
-      "matches": [],
-      "js": ["src/relay.js"],
+      "matches": [
+        "<youtube>"
+      ],
+      "js": [
+        "src/relay.js"
+      ],
       "run_at": "document_start",
       "all_frames": true
+    },
+    {
+      "matches": [
+        "<tubi>"
+      ],
+      "js": [
+        "tubi-rules.js",
+        "src/bridge-shim.js",
+        "src/tubi.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "<tubi>"
+      ],
+      "js": [
+        "src/relay.js"
+      ],
+      "run_at": "document_start"
     }
   ]
 }
