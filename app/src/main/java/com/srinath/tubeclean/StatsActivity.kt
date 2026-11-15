@@ -8,6 +8,8 @@ import android.view.KeyEvent
 import android.view.View
 import android.widget.Button
 import android.widget.TextView
+import java.text.DateFormat
+import java.util.Date
 
 /** Stats screen (☰ on a TV remote, the 🛡 button on a phone): ads blocked in this video, today, and the 30-day trend, plus the health banner. */
 class StatsActivity : Activity() {
@@ -20,6 +22,7 @@ class StatsActivity : Activity() {
         setContentView(if (app.isTv) R.layout.activity_stats else R.layout.activity_stats_phone)
         findViewById<Button>(R.id.back).setOnClickListener { finish() }
         findViewById<Button>(R.id.reset).setOnClickListener { confirmReset() }
+        findViewById<Button>(R.id.clean_start).setOnClickListener { confirmCleanStart() }
         findViewById<TextView>(R.id.health_banner).setOnClickListener { RevisionDialog.details(this, app.health) }
         render()
         if (app.isTv) findViewById<Button>(R.id.back).requestFocus()
@@ -48,13 +51,27 @@ class StatsActivity : Activity() {
             if (today.perVideo.isEmpty()) getString(R.string.stats_no_videos)
             else getString(R.string.stats_per_video, today.perVideo.takeLast(40).joinToString("  ·  "))
         findViewById<TrendChartView>(R.id.chart).setDays(month)
-        findViewById<TextView>(R.id.rules_version).text = getString(R.string.stats_rules, app.rules.version)
+        val guestSince = app.guest.startedAt
+        findViewById<TextView>(R.id.rules_version).text = getString(R.string.stats_rules, app.rules.version) +
+            if (guestSince <= 0) "" else "  ·  " + getString(
+                R.string.stats_guest, DateFormat.getDateInstance(DateFormat.MEDIUM).format(Date(guestSince)), GuestId.MAX_AGE_DAYS,
+            )
 
         val issues = app.health.issues()
         findViewById<TextView>(R.id.health_banner).apply {
             visibility = if (issues.isEmpty()) View.GONE else View.VISIBLE
             text = getString(R.string.health_banner, issues.joinToString(", ") { it.code })
         }
+    }
+
+    /** The app becomes a new guest as soon as this screen closes (MainActivity.onRestart). */
+    private fun confirmCleanStart() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.clean_start_title)
+            .setMessage(R.string.clean_start_message)
+            .setPositiveButton(R.string.clean_start) { _, _ -> app.guest.cleanStart(); finish() }
+            .setNegativeButton(android.R.string.cancel, null)
+            .show()
     }
 
     private fun confirmReset() {

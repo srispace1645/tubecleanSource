@@ -21,6 +21,7 @@ class TubeCleanApp : Application() {
     }
     val stats: StatsStore by lazy { StatsStore(File(filesDir, "stats.json")) }
     val health: HealthMonitor by lazy { HealthMonitor(File(filesDir, "health.json"), rules.version) }
+    val guest: GuestId by lazy { GuestId(File(filesDir, "guest.json")) }
 
     /** Set once this process has created a WebView; after that its profile folders must not be deleted from under it. */
     var webViewStarted = false

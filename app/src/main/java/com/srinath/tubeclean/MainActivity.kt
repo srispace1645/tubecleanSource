@@ -78,7 +78,7 @@ class MainActivity : Activity() {
         else SystemBars.show(this)
         super.onCreate(savedInstanceState)
         // Before this process's first WebView exists, its on-disk profile can simply be deleted.
-        if (!app.webViewStarted) PrivacyGuard.wipeProfileBeforeWebView(this)
+        if (!app.webViewStarted) PrivacyGuard.wipeProfileBeforeWebView(this, keepCookies = !app.guest.expired())
         app.webViewStarted = true
         blocker = AdBlocker(app.rules)
 
@@ -106,12 +106,27 @@ class MainActivity : Activity() {
         setContentView(root)
 
         configureWebView()
-        PrivacyGuard.wipe(web) { load() }
+        startSession()
+    }
+
+    /** Wipes the last session but keeps YouTube's guest ID, unless it's due for renewal or Clean Start was pressed. */
+    private fun startSession() {
+        val newGuest = app.guest.expired()
+        PrivacyGuard.wipe(web, keepCookies = !newGuest) {
+            if (newGuest) app.guest.startNew()
+            load()
+        }
     }
 
     override fun onStart() {
         super.onStart()
         openingStats = false
+    }
+
+    override fun onRestart() {
+        super.onRestart()
+        // Back from the stats screen after Clean Start: become a new guest now.
+        if (app.guest.expired()) startSession()
     }
 
     override fun onResume() {
@@ -123,8 +138,8 @@ class MainActivity : Activity() {
         super.onStop()
         app.stats.flush()
         if (!openingStats && !isChangingConfigurations) {
-            // Leaving the app (Home, another app, screensaver) ends the guest session.
-            PrivacyGuard.wipe(web)
+            // Leaving the app (Home, another app, screensaver) ends the session; the guest ID stays.
+            PrivacyGuard.wipe(web, keepCookies = true)
             finish()
         }
     }
@@ -177,6 +192,29 @@ class MainActivity : Activity() {
         }
         web.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ESCAPE))
         web.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_ESCAPE))
+    }
+
+    /**
+     * A brand-new guest is asked to "sign in to confirm you're not a bot" before some videos until it
+     * has watched an ordinary one. Suggest one; nothing plays unless the user chooses Watch it.
+     */
+    private fun suggestFirstVideo() {
+        if (promptShowing) return // the revision prompt is up; suggest on a later page load
+        app.guest.firstVideoDone()
+        val id = app.rules.newGuestVideoId
+        if (id.isEmpty()) return
+        AlertDialog.Builder(this)
+            .setTitle(R.string.new_guest_title)
+            .setMessage(getString(R.string.new_guest_message, app.rules.newGuestVideoTitle))
+            .setPositiveButton(R.string.watch_it) { _, _ -> openVideo(id) }
+            .setNegativeButton(R.string.not_now, null)
+            .show()
+    }
+
+    /** [id] is a checked 11-character video ID (see [Rules]). */
+    private fun openVideo(id: String) {
+        if (isTv) web.evaluateJavascript("location.hash = '#/watch?v=$id'", null)
+        else web.loadUrl("https://m.youtube.com/watch?v=$id")
     }
 
     private fun openStats() {
@@ -234,7 +272,7 @@ class MainActivity : Activity() {
         if (uaIndex < app.rules.userAgents.lastIndex) {
             uaIndex++
             Log.w(TAG, "YouTube TV rejected user agent #${uaIndex - 1} ($detail); trying #$uaIndex")
-            PrivacyGuard.wipe(web) { load() }
+            PrivacyGuard.wipe(web) { app.guest.startNew(); load() }
         } else {
             reportHealth("SITE_CHANGED", detail)
         }
@@ -372,6 +410,7 @@ class MainActivity : Activity() {
         @JavascriptInterface
         fun videoStarted() = runOnUiThread {
             app.stats.videoStarted()
+            app.guest.firstVideoDone()
             if (!isTv) showPhoneBadge(expanded = false)
         }
 
@@ -417,6 +456,26 @@ class MainActivity : Activity() {
             Log.i(TAG, "left a DRM-protected video (no Widevine)")
             Toast.makeText(this@MainActivity, R.string.drm_blocked, Toast.LENGTH_LONG).show()
             backInPage()
+        }
+
+        /** YouTube's home screen is up and nothing has been opened yet. */
+        @JavascriptInterface
+        fun homeReady() = runOnUiThread { if (app.guest.suggestFirstVideo) suggestFirstVideo() }
+
+        /**
+         * YouTube asked a new guest to sign in before a stricter video (it can happen after the guest
+         * is renewed, if the suggested first video was skipped). Sign-in is off, so say what works
+         * and leave the sign-in screen.
+         */
+        @JavascriptInterface
+        fun botCheck() = runOnUiThread {
+            Log.i(TAG, "YouTube asked the new guest to confirm it's not a bot")
+            AlertDialog.Builder(this@MainActivity)
+                .setTitle(R.string.bot_check_title)
+                .setMessage(R.string.bot_check_message)
+                .setPositiveButton(R.string.back) { _, _ -> backInPage() }
+                .setOnCancelListener { backInPage() }
+                .show()
         }
 
         @JavascriptInterface

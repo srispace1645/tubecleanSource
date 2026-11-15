@@ -13,8 +13,8 @@ android {
         applicationId = "com.srinath.tubeclean"
         minSdk = 22 // Fire OS 5 (Android 5.1), e.g. the 2015 Fire TV box and 2nd-gen Fire TV Stick
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
     }
 
     signingConfigs {

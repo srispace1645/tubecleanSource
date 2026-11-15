@@ -10,6 +10,12 @@
     <string name="no_widevine">This device has no Widevine DRM, so many popular and music videos won\'t play here (they stay on a black loading screen). Ads are still blocked.</string>
     <string name="drm_blocked">This video is DRM-protected and can\'t play on this device. Going back.</string>
     <string name="guest_only">Guest mode: sign-in is turned off in TubeClean.</string>
+    <string name="bot_check_title">Watch another video first</string>
+    <string name="bot_check_message">YouTube asks a new guest to sign in before some videos, like this one. TubeClean starts a new guest every 10 days, or after Clean Start.\n\nPlay any other video for a few seconds, then come back to this one.</string>
+    <string name="new_guest_title">New guest started</string>
+    <string name="new_guest_message">TubeClean is now a new guest, so YouTube knows nothing about this device.\n\nYouTube may ask a new guest to sign in before some videos until it has watched an ordinary one. If you like, start with this short one:\n\n%1$s</string>
+    <string name="watch_it">Watch it</string>
+    <string name="not_now">Not now</string>
     <string name="offline_title">Can\'t reach YouTube</string>
     <string name="offline_message">Check this device\'s internet connection, then try again.</string>
     <string name="retry">Retry</string>
@@ -36,5 +42,9 @@
     <string name="reset_title">Reset stats?</string>
     <string name="reset_message">This clears all ad-block counts for the last 30 days.</string>
     <string name="back">Back</string>
+    <string name="clean_start">Clean Start</string>
+    <string name="clean_start_title">Start as a new guest?</string>
+    <string name="clean_start_message">YouTube forgets this device\'s guest ID and what was watched with it. Your ad counts stay.</string>
+    <string name="stats_guest">Guest since %1$s · a new guest every %2$d days</string>
     <string name="stats_button">Ad-block stats</string>
 </resources>

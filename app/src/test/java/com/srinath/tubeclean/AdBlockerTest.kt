@@ -112,8 +112,11 @@ class AdBlockerTest {
         listOf(
             "version", "startUrl", "userAgents", "adUrls", "trackerUrls", "signInUrls", "adDataKeys",
             "playerSelectors", "adClassNames", "skipButtonSelectors", "hideSelectors", "watchRoutePattern",
+            "botCheckTextPatterns", "homeSelector", "newGuestVideo",
         ).forEach { assertTrue("rules.json is missing $it", o.has(it)) }
+        assertEquals("the suggested first video needs a valid ID", 11, Rules.parse(json).newGuestVideoId.length)
         assertTrue(o.getJSONArray("adDataKeys").length() > 0)
+        assertTrue(o.getJSONArray("botCheckTextPatterns").length() > 0)
         // No ad/tracker rule may catch the video stream itself.
         val stream = "https://rr1---sn-x.googlevideo.com/videoplayback"
         assertEquals(Verdict.ALLOW, blocker.classify(stream))

@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.31-1",
+  "version": "2026.11.06-2",
 
   "startUrl": "https://www.youtube.com/tv",
   "tvPathMarker": "/tv",
@@ -18,6 +18,10 @@
     "stepMs": 700
   },
   "unsupportedTextPatterns": ["browser is not supported", "unsupported browser", "update your browser", "not available on this device"],
+  "botCheckTextPatterns": ["not a bot"],
+  "homeSelector": "ytlr-guide-entry-renderer",
+  "notHomeSelector": "ytlr-welcome, ytlr-account-selector",
+  "newGuestVideo": { "id": "Fdz3UGMrymU", "title": "Agara Muthala – Thirukkural 1 (30 seconds)" },
 
   "neverBlock": ["googlevideo.com/videoplayback", "googlevideo.com/initplayback", "youtube.com/api/stats/atr", "youtube.com/youtubei/v1/att/"],
   "adUrls": [
@@ -81,6 +85,8 @@
     "tvPathMarker": "",
     "userAgents": [],
     "guestFlow": {},
+    "homeSelector": "",
+    "notHomeSelector": "",
     "watchRoutePattern": "(?:[?&]v=|/shorts/)([\\w-]{11})",
     "playerSelectors": ["#movie_player", ".html5-video-player"],
     "adIndicatorSelectors": [".ytp-ad-player-overlay", ".ytp-ad-player-overlay-layout", ".ytp-ad-preview-container"],

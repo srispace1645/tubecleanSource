@@ -228,10 +228,26 @@
   // ---- Main loop ----------------------------------------------------------------
   var lastPlaying = null;
 
+  // ---- Home screen ----------------------------------------------------------------
+  // Tells the app once per page load when YouTube's home screen is up and no video has been opened
+  // yet, so it can suggest a first video to a new guest. The mobile site has no welcome screens:
+  // there, a loaded page is enough.
+  var homeReported = false;
+
+  function checkHome() {
+    if (homeReported) return;
+    if (videoId) { homeReported = true; return; } // went straight to a video
+    if (R.homeSelector ? !first([R.homeSelector]) : document.readyState !== 'complete') return;
+    if (R.notHomeSelector && first([R.notHomeSelector])) return;
+    homeReported = true;
+    call(function (b) { b.homeReady(); });
+  }
+
   function tick() {
     injectHideCss();
     checkRoute();
     autoGuest();
+    checkHome();
     var player = first(R.playerSelectors);
     var video = (player && player.querySelector('video')) || document.querySelector('video');
 
@@ -241,6 +257,7 @@
 
     probePlayer(player, video);
     checkDrmExit(player, video);
+    checkBotScreen(video);
 
     var playing = !!video && !video.paused && !video.ended;
     if (playing !== lastPlaying) {
@@ -280,6 +297,23 @@
     if (Date.now() - drmSeenAt < (R.drmExitDelayMs || 1500)) return;
     drmExitFor = videoId;
     call(function (b) { b.drmBlocked(); });
+  }
+
+  // ---- YouTube's bot check --------------------------------------------------------
+  // Every launch is a brand-new guest (wiped storage), and YouTube asks a brand-new guest to
+  // "sign in to confirm you're not a bot" before some stricter videos. Sign-in is off, so let the
+  // app explain instead of leaving a dead-end sign-in screen. Once per video.
+  var botCheckFor = null, botCheckLastScan = 0;
+
+  function checkBotScreen(video) {
+    if (!videoId || botCheckFor === videoId || (video && video.currentTime > 0)) return;
+    if (Date.now() - botCheckLastScan < 1000) return; // innerText is costly; once a second is plenty
+    botCheckLastScan = Date.now();
+    var text = ((document.body && document.body.innerText) || '').toLowerCase();
+    var hit = (R.botCheckTextPatterns || []).some(function (p) { return text.indexOf(p.toLowerCase()) > -1; });
+    if (!hit) return;
+    botCheckFor = videoId;
+    call(function (b) { b.botCheck(); });
   }
 
   setInterval(tick, TICK_MS);

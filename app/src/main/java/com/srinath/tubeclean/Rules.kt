@@ -22,12 +22,16 @@ class Rules(
     val adUrls: List<String>,
     val trackerUrls: List<String>,
     val signInUrls: List<String>,
+    /** Suggested to a new guest as its first video (see [GuestId]); blank turns the suggestion off. */
+    val newGuestVideoId: String,
+    val newGuestVideoTitle: String,
     /** The effective rules (profile applied), handed to the page scripts as `window.__TC_RULES`. */
     val rawJson: String,
 ) {
     companion object {
         const val PHONE = "phone"
         const val DESKTOP = "desktop"
+        private val VIDEO_ID = Regex("[\\w-]{11}")
 
         fun parse(json: String, profile: String? = null): Rules {
             val o = JSONObject(json)
@@ -50,6 +54,8 @@ class Rules(
                 adUrls = list("adUrls"),
                 trackerUrls = list("trackerUrls"),
                 signInUrls = list("signInUrls"),
+                newGuestVideoId = o.optJSONObject("newGuestVideo")?.optString("id").orEmpty().takeIf { VIDEO_ID.matches(it) }.orEmpty(),
+                newGuestVideoTitle = o.optJSONObject("newGuestVideo")?.optString("title").orEmpty(),
                 rawJson = o.toString(),
             )
         }

@@ -81,6 +81,13 @@
             android:textSize="14sp" />
 
         <Button
+            android:id="@+id/clean_start"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="12dp"
+            android:text="@string/clean_start" />
+
+        <Button
             android:id="@+id/reset"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
