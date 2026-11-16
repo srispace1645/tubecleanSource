@@ -153,20 +153,22 @@
   if (window.XMLHttpRequest) {
     var XHR = XMLHttpRequest.prototype;
     var nativeOpen = XHR.open;
+    var xhrs = new WeakMap(); // XHR -> { url, done }: kept out of sight of the page's own XHR objects
     XHR.open = function open(method, url) {
-      this.__tcPlutoUrl = wanted(String(url)) ? String(url) : null;
-      this.__tcPlutoDone = undefined;
+      if (wanted(String(url))) xhrs.set(this, { url: String(url), done: undefined });
+      else xhrs.delete(this);
       return nativeOpen.apply(this, arguments);
     };
     try { XHR.open.toString = nativeOpen.toString.bind(nativeOpen); } catch (e) {}
     var respDesc = Object.getOwnPropertyDescriptor(XHR, 'response');
     var textDesc = Object.getOwnPropertyDescriptor(XHR, 'responseText');
     var rewritten = function (xhr) {
-      if (!xhr.__tcPlutoUrl || xhr.readyState !== 4 || xhr.status < 200 || xhr.status > 299) return null;
-      if (xhr.__tcPlutoDone !== undefined) return xhr.__tcPlutoDone;
+      var st = xhrs.get(xhr);
+      if (!st || xhr.readyState !== 4 || xhr.status < 200 || xhr.status > 299) return null;
+      if (st.done !== undefined) return st.done;
       var type = xhr.responseType, body = null;
-      try { if (type === '' || type === 'text') body = rewrite(xhr.__tcPlutoUrl, textDesc.get.call(xhr)); } catch (e) {}
-      xhr.__tcPlutoDone = body;
+      try { if (type === '' || type === 'text') body = rewrite(st.url, textDesc.get.call(xhr)); } catch (e) {}
+      st.done = body;
       return body;
     };
     try {

@@ -78,6 +78,23 @@ class AdBlockerTest {
         assertFalse(blocker.isAllowedHost("https://example.com/"))
         assertFalse(blocker.isAllowedHost("http://www.youtube.com/tv"))
         assertFalse(blocker.isAllowedHost("intent://scan/#Intent;scheme=zxing;end"))
+        assertTrue(blocker.isAllowedHost("https://www.youtube.com:443/tv"))
+        assertTrue(blocker.isAllowedHost("https://www.youtube.com?x=a@b"))
+    }
+
+    /** A user part before "@" sends the browser to the host after it, whatever comes before. */
+    @Test
+    fun userPartCannotSneakInAnotherSite() {
+        listOf(
+            "https://www.youtube.com:x@evil.example/",
+            "https://www.youtube.com@evil.example/",
+            "https://www.youtube.com:@evil.example",
+            "https://www.you\ttube.com:x@evil.example/",
+            "https://www.youtube.com%40evil.example/",
+            "https://www.youtube.com:8443/tv",
+            "HTTPS://www.youtube.com:x@evil.example/",
+        ).forEach { assertFalse(it, blocker.isAllowedHost(it)) }
+        assertEquals("evil.example", AdBlocker.host("https://evil.example\\@www.youtube.com/"))
     }
 
     @Test

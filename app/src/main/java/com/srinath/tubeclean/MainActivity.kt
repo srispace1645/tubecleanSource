@@ -36,6 +36,8 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
+import org.json.JSONArray
+import org.json.JSONObject
 import java.io.ByteArrayInputStream
 
 /**
@@ -60,13 +62,15 @@ class MainActivity : Activity() {
     private var promptShowing = false
     private var backLongPressed = false
     private var noDrmShown = false
+    private var botCheckShowing = false
+    private var bridgeShim = "" // set by installBridge before pageScript is first read
     private var fullscreenView: View? = null
     private var fullscreenCallback: WebChromeClient.CustomViewCallback? = null
 
     private val pageScript by lazy {
         // The codec-probe shim is only for the TV site.
         val scripts = if (isTv) listOf("tvcompat.js", "prune.js", "adskip.js") else listOf("prune.js", "adskip.js")
-        "window.__TC_RULES=${app.rules.rawJson};\n" + scripts.joinToString("\n") { readAsset(it) }
+        bridgeShim + "window.__TC_RULES=${app.rules.rawJson};\n" + scripts.joinToString("\n") { readAsset(it) }
     }
     private val fadeBadge = Runnable {
         if (isTv) badge.animate().alpha(0f).setDuration(600)
@@ -248,12 +252,10 @@ class MainActivity : Activity() {
         }
         if (debuggable) WebView.setWebContentsDebuggingEnabled(true)
 
-        web.addJavascriptInterface(Bridge(), "TubeCleanBridge")
+        val origins = app.rules.allowedHosts.map { "https://$it" }.toSet()
+        bridgeShim = installBridge(origins)
         docStartSupported = WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
-        if (docStartSupported) {
-            val origins = app.rules.allowedHosts.map { "https://$it" }.toSet()
-            WebViewCompat.addDocumentStartJavaScript(web, pageScript, origins)
-        }
+        if (docStartSupported) WebViewCompat.addDocumentStartJavaScript(web, pageScript, origins)
         Log.i(TAG, "rules ${app.rules.version}; document-start scripts: $docStartSupported")
 
         web.webViewClient = Client()
@@ -405,86 +407,115 @@ class MainActivity : Activity() {
         }
     }
 
-    /** The page scripts' only way to talk to the app. Every call carries counts or problem codes, never video details. */
-    private inner class Bridge {
-        @JavascriptInterface
-        fun videoStarted() = runOnUiThread {
-            app.stats.videoStarted()
-            app.guest.firstVideoDone()
-            if (!isTv) showPhoneBadge(expanded = false)
-        }
-
-        @JavascriptInterface
-        fun adsPruned(n: Int) = runOnUiThread { addAds(n) }
-
-        @JavascriptInterface
-        fun adSkipped() = runOnUiThread { addAds(1) }
-
-        @JavascriptInterface
-        fun playing(isPlaying: Boolean) = runOnUiThread {
-            if (isPlaying) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        }
-
-        /** Guest auto-entry: the TV UI only reacts to real key presses, so the page asks the app to press them. */
-        @JavascriptInterface
-        fun remoteKey(action: String) = runOnUiThread {
-            val key = when (action) {
-                "select" -> KeyEvent.KEYCODE_DPAD_CENTER
-                "down" -> KeyEvent.KEYCODE_DPAD_DOWN
-                else -> return@runOnUiThread
+    /**
+     * The page scripts' only way to talk to the app. Every call carries counts or problem codes, never video
+     * details. Only YouTube's own frames get the bridge (see [installBridge]); calls that change what's on
+     * screen are taken from the top frame only, so an embedded frame can at most add to the counts.
+     */
+    private fun onPageCall(method: String, args: JSONArray, mainFrame: Boolean) {
+        when (method) {
+            "adsPruned" -> addAds(args.optInt(0))
+            "adSkipped" -> addAds(1)
+            "health" -> {
+                val code = args.optString(0)
+                val detail = args.optString(1).take(200)
+                when {
+                    code == "SITE_CHANGED" -> if (mainFrame) onUnsupported(detail)
+                    code in HealthMonitor.CODES -> reportHealth(code, detail)
+                }
             }
-            web.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, key))
-            web.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, key))
+            else -> if (mainFrame) onTopFrameCall(method, args)
         }
+    }
 
-        /**
-         * Most popular videos reach TV clients Widevine-protected. Without working Widevine (e.g. the
-         * Android TV emulator) they sit on a black loading screen, so say why, once per launch.
-         */
-        @JavascriptInterface
-        fun noDrm() = runOnUiThread {
-            if (noDrmShown) return@runOnUiThread
-            noDrmShown = true
-            Log.w(TAG, "Widevine DRM unavailable in WebView")
-            Toast.makeText(this@MainActivity, R.string.no_widevine, Toast.LENGTH_LONG).show()
-        }
-
-        /** A DRM-protected video can't start on this device: say so and go back to the previous screen. */
-        @JavascriptInterface
-        fun drmBlocked() = runOnUiThread {
-            Log.i(TAG, "left a DRM-protected video (no Widevine)")
-            Toast.makeText(this@MainActivity, R.string.drm_blocked, Toast.LENGTH_LONG).show()
-            backInPage()
-        }
-
-        /** YouTube's home screen is up and nothing has been opened yet. */
-        @JavascriptInterface
-        fun homeReady() = runOnUiThread { if (app.guest.suggestFirstVideo) suggestFirstVideo() }
-
-        /**
-         * YouTube asked a new guest to sign in before a stricter video (it can happen after the guest
-         * is renewed, if the suggested first video was skipped). Sign-in is off, so say what works
-         * and leave the sign-in screen.
-         */
-        @JavascriptInterface
-        fun botCheck() = runOnUiThread {
-            Log.i(TAG, "YouTube asked the new guest to confirm it's not a bot")
-            AlertDialog.Builder(this@MainActivity)
-                .setTitle(R.string.bot_check_title)
-                .setMessage(R.string.bot_check_message)
-                .setPositiveButton(R.string.back) { _, _ -> backInPage() }
-                .setOnCancelListener { backInPage() }
-                .show()
-        }
-
-        @JavascriptInterface
-        fun health(code: String, detail: String) = runOnUiThread {
-            when (code) {
-                "SITE_CHANGED" -> onUnsupported(detail)
-                in HealthMonitor.CODES -> reportHealth(code, detail)
+    private fun onTopFrameCall(method: String, args: JSONArray) {
+        when (method) {
+            "videoStarted" -> {
+                app.stats.videoStarted()
+                app.guest.firstVideoDone()
+                if (!isTv) showPhoneBadge(expanded = false)
+            }
+            "playing" ->
+                if (args.optBoolean(0)) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            // Guest auto-entry: the TV UI only reacts to real key presses, so the page asks the app to press them.
+            "remoteKey" -> {
+                val key = when (args.optString(0)) {
+                    "select" -> KeyEvent.KEYCODE_DPAD_CENTER
+                    "down" -> KeyEvent.KEYCODE_DPAD_DOWN
+                    else -> return
+                }
+                web.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, key))
+                web.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_UP, key))
+            }
+            // Most popular videos reach TV clients Widevine-protected. Without working Widevine (e.g. the
+            // Android TV emulator) they sit on a black loading screen, so say why, once per launch.
+            "noDrm" -> {
+                if (noDrmShown) return
+                noDrmShown = true
+                Log.w(TAG, "Widevine DRM unavailable in WebView")
+                Toast.makeText(this, R.string.no_widevine, Toast.LENGTH_LONG).show()
+            }
+            // A DRM-protected video can't start on this device: say so and go back to the previous screen.
+            "drmBlocked" -> {
+                Log.i(TAG, "left a DRM-protected video (no Widevine)")
+                Toast.makeText(this, R.string.drm_blocked, Toast.LENGTH_LONG).show()
+                backInPage()
+            }
+            // YouTube's home screen is up and nothing has been opened yet.
+            "homeReady" -> if (app.guest.suggestFirstVideo) suggestFirstVideo()
+            // YouTube asked a new guest to sign in before a stricter video (it can happen after the guest
+            // is renewed, if the suggested first video was skipped). Sign-in is off, so say what works
+            // and leave the sign-in screen.
+            "botCheck" -> {
+                if (botCheckShowing) return
+                botCheckShowing = true
+                Log.i(TAG, "YouTube asked the new guest to confirm it's not a bot")
+                AlertDialog.Builder(this)
+                    .setTitle(R.string.bot_check_title)
+                    .setMessage(R.string.bot_check_message)
+                    .setPositiveButton(R.string.back) { _, _ -> backInPage() }
+                    .setOnCancelListener { backInPage() }
+                    .setOnDismissListener { botCheckShowing = false }
+                    .show()
             }
         }
+    }
+
+    /**
+     * Gives the page scripts their TubeCleanBridge and returns the script that sets it up in the page.
+     * Where WebView supports it, the bridge is a message port that only YouTube's own origins get, and the
+     * app knows which frame each call came from. Older WebViews (Fire OS 5) only have
+     * addJavascriptInterface, which every frame can reach: there, calls count as top-frame calls only
+     * while the page itself is on YouTube.
+     */
+    private fun installBridge(origins: Set<String>): String {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)) {
+            WebViewCompat.addWebMessageListener(web, PORT, origins) { _, message, _, isMainFrame, _ ->
+                val call = runCatching { JSONObject(message.data ?: "") }.getOrNull() ?: return@addWebMessageListener
+                onPageCall(call.optString("m"), call.optJSONArray("a") ?: JSONArray(), isMainFrame)
+            }
+            return PORT_SHIM
+        }
+        web.addJavascriptInterface(LegacyBridge(), "TubeCleanBridge")
+        return ""
+    }
+
+    private inner class LegacyBridge {
+        private fun call(method: String, vararg args: Any) = runOnUiThread {
+            onPageCall(method, JSONArray(args.toList()), mainFrame = blocker.isAllowedHost(web.url ?: ""))
+        }
+
+        @JavascriptInterface fun videoStarted() = call("videoStarted")
+        @JavascriptInterface fun adsPruned(n: Int) = call("adsPruned", n)
+        @JavascriptInterface fun adSkipped() = call("adSkipped")
+        @JavascriptInterface fun playing(isPlaying: Boolean) = call("playing", isPlaying)
+        @JavascriptInterface fun remoteKey(action: String) = call("remoteKey", action)
+        @JavascriptInterface fun noDrm() = call("noDrm")
+        @JavascriptInterface fun drmBlocked() = call("drmBlocked")
+        @JavascriptInterface fun homeReady() = call("homeReady")
+        @JavascriptInterface fun botCheck() = call("botCheck")
+        @JavascriptInterface fun health(code: String, detail: String) = call("health", code, detail)
     }
 
     // ---- Stats badge and revision prompt ------------------------------------------
@@ -607,5 +638,23 @@ class MainActivity : Activity() {
         const val MAX_ADS_PER_EVENT = 50
         const val MATCH = ViewGroup.LayoutParams.MATCH_PARENT
         const val WRAP = ViewGroup.LayoutParams.WRAP_CONTENT
+
+        /** The message port WebView puts in YouTube's frames (only there) for [installBridge]. */
+        const val PORT = "__tcPort"
+
+        /** Turns the port into the TubeCleanBridge object prune.js and adskip.js call. */
+        const val PORT_SHIM = """(function () {
+  var port = window.__tcPort;
+  if (window.TubeCleanBridge || !port) return;
+  var bridge = {};
+  ['videoStarted', 'adsPruned', 'adSkipped', 'playing', 'remoteKey', 'noDrm', 'drmBlocked', 'homeReady',
+   'botCheck', 'health'].forEach(function (m) {
+    bridge[m] = function () {
+      try { port.postMessage(JSON.stringify({ m: m, a: Array.prototype.slice.call(arguments, 0, 2) })); } catch (e) {}
+    };
+  });
+  try { Object.defineProperty(window, 'TubeCleanBridge', { value: Object.freeze(bridge) }); } catch (e) {}
+})();
+"""
     }
 }

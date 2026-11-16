@@ -9,7 +9,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { effectiveRules, dnrRules, urlFilter, chromeVersion } from './extension-lib.mjs';
+import { effectiveRules, dnrRules, urlFilter, chromeVersion, pageBundle } from './extension-lib.mjs';
+import vm from 'node:vm';
 import { StatsStore, dayOf, WINDOW_DAYS } from '../extension/src/stats.js';
 import { HealthMonitor, SNOOZE_MS } from '../extension/src/health.js';
 
@@ -200,4 +201,32 @@ test('only Google sign-in cookies on YouTube are removed; the guest ID stays', (
   }
   assert.equal(isYouTubeSignInCookie({ domain: '.google.com', name: 'SID' }), false, 'Google itself is untouched');
   assert.equal(isYouTubeSignInCookie({ domain: '.notyoutube.com', name: 'SID' }), false);
+});
+
+// ---- Page bundles -----------------------------------------------------------------
+
+test('page bundles keep the rules and the bridge out of the page', () => {
+  const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
+  const code = pageBundle('YouTube', { __TC_RULES: { version: 'x' } }, [
+    ['src/bridge-shim.js', read('extension/src/bridge-shim.js')],
+    ['prune.js', read('app/src/main/assets/prune.js')],
+    ['adskip.js', read('app/src/main/assets/adskip.js')],
+    ['src/enforcement.js', read('extension/src/enforcement.js')],
+  ]);
+  assert.doesNotMatch(code, /\bwindow\.(TubeCleanBridge|__TC_|__tc)/);
+  // Run the bridge part in a stand-in page: nothing new may appear on window.
+  const shim = pageBundle('t', {}, [['src/bridge-shim.js', read('extension/src/bridge-shim.js')]]);
+  const sent = [];
+  const EventTarget = function () {};
+  EventTarget.prototype.addEventListener = function (t, f) { (this.l = this.l || {})[t] = f; };
+  EventTarget.prototype.removeEventListener = function (t) { if (this.l) delete this.l[t]; };
+  EventTarget.prototype.dispatchEvent = function (e) { sent.push(e.type); if (this.l && this.l[e.type]) this.l[e.type](e); return true; };
+  const el = () => Object.create(EventTarget.prototype);
+  const document = Object.assign(el(), { createElement: el });
+  const window = {};
+  class CustomEvent { constructor(type, init) { this.type = type; this.detail = init && init.detail; } }
+  class MouseEvent { constructor(type, init) { this.type = type; this.relatedTarget = init && init.relatedTarget; } }
+  vm.runInNewContext(shim, { window, document, EventTarget, CustomEvent, MouseEvent, JSON });
+  assert.deepEqual(Object.keys(window), []);
+  assert.deepEqual(sent, ['tubeclean-hello'], 'the bridge offers its private link');
 });

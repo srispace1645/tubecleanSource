@@ -91,11 +91,13 @@
   if (window.XMLHttpRequest) {
     var XHR = XMLHttpRequest.prototype;
     var nativeOpen = XHR.open;
+    var xhrs = new WeakMap(); // XHR -> { url, done }: kept out of sight of the page's own XHR objects
     XHR.open = function open(method, url) {
-      this.__tcUrl = isAdDecision(url) ? String(url) : null;
-      this.__tcDone = undefined;
-      // Any answer counts as the player asking, including 204 "no ads" that it never reads.
-      if (this.__tcUrl) this.addEventListener('loadend', function () { decisions++; }, { once: true });
+      if (isAdDecision(url)) {
+        xhrs.set(this, { url: String(url), done: undefined });
+        // Any answer counts as the player asking, including 204 "no ads" that it never reads.
+        this.addEventListener('loadend', function () { decisions++; }, { once: true });
+      } else xhrs.delete(this);
       return nativeOpen.apply(this, arguments);
     };
     try { XHR.open.toString = nativeOpen.toString.bind(nativeOpen); } catch (e) {}
@@ -105,8 +107,9 @@
 
     // Rewrites once per response, when it's complete; later reads get the same answer.
     var pruneXhr = function (xhr) {
-      if (!xhr.__tcUrl || xhr.readyState !== 4) return null;
-      if (xhr.__tcDone !== undefined) return xhr.__tcDone;
+      var st = xhrs.get(xhr);
+      if (!st || xhr.readyState !== 4) return null;
+      if (st.done !== undefined) return st.done;
       var type = xhr.responseType, done = null;
       try {
         if (type === 'json') {
@@ -119,8 +122,8 @@
           if (r.ok) done = r;
         }
       } catch (e) {}
-      xhr.__tcDone = done;
-      if (done) counted(xhr.__tcUrl, done.removed);
+      st.done = done;
+      if (done) counted(st.url, done.removed);
       return done;
     };
 

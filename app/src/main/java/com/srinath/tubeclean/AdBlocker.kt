@@ -22,14 +22,25 @@ class AdBlocker(rules: Rules) {
     }
 
     /** Top-level navigation is limited to YouTube itself; anything else (other sites, intent:// links) is refused. */
-    fun isAllowedHost(url: String): Boolean {
-        val lower = url.lowercase()
-        if (!lower.startsWith("https://")) return false
-        val host = hostAndPath(lower).substringBefore('/').substringBefore(':')
-        return host in allowedHosts
-    }
+    fun isAllowedHost(url: String): Boolean = host(url)?.let { it in allowedHosts } ?: false
 
     companion object {
+        /**
+         * The host an https URL really goes to, read the way the browser reads it, or null when it isn't
+         * plain https or names a user ("https://www.youtube.com:x@evil.com/" goes to evil.com, not YouTube).
+         */
+        fun host(url: String): String? {
+            // Browsers drop tabs and line breaks anywhere in a URL, and treat "\" as "/".
+            val clean = url.trim().replace(Regex("[\\t\\n\\r]"), "").lowercase()
+            if (!clean.startsWith("https://")) return null
+            val authority = clean.substring("https://".length).split('/', '\\', '?', '#').first()
+            if ('@' in authority || '%' in authority) return null
+            val host = authority.substringBefore(':')
+            val port = authority.substringAfter(':', "")
+            if (port.isNotEmpty() && port != "443") return null
+            return host.ifEmpty { null }
+        }
+
         /**
          * "https://www.youtube.com/api/stats/ads?ref=doubleclick.net" -> "www.youtube.com/api/stats/ads".
          * Matching ignores the query and fragment, so a parameter can't cause (or dodge) a block.

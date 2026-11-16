@@ -31,6 +31,8 @@ While a guest is kept, YouTube can tell it's the same device coming back and may
 - Cache, local storage, IndexedDB, and the app's search and browsing history are wiped when the app starts and when you leave it (Home, another app, or the screensaver). YouTube's cookies (the guest ID) are kept for up to 10 days; see above.
 - YouTube's watch-time and playback-stats pings are blocked.
 - The app makes no network calls of its own. Its only permission is internet access.
+- **Only YouTube can open in the app.** Links to anything else are refused, including disguised ones such as `https://www.youtube.com:x@other.site/`, which really go to the site after the `@`.
+- **Only YouTube's own pages can talk to the app.** The page scripts reach the app through a message port that WebView gives to YouTube's origins only, and calls that change the screen (remote keys, dialogs, going back) are only taken from the top page. Older WebViews without message ports (Fire OS 5) fall back to a plain JavaScript interface, whose calls are only taken while the app is on YouTube.
 
 **Stats (the only data kept).** `stats.json` holds, for each day of the last 30:
 - the number of videos watched
@@ -91,7 +93,7 @@ You need Android Studio. `install.ps1` uses its bundled JDK and the SDK at `%LOC
 
 `https://github.com/srispace1645/tubeclean-release/releases/latest/download/TubeClean.apk` then serves the new build, and so does the short link https://tinyurl.com/2bhzu5n3 that friends install from (Downloader on Fire TV and Android TV, Chrome on phones). Download counts are in `api.github.com/repos/srispace1645/tubeclean-release/releases` (`assets[].download_count`).
 
-Builds are signed with TubeClean's own key, `~/.android/tubeclean.keystore`: the Android debug key that signed 1.0 (SHA-256 `5C:CF:A4:61…`). Back that file up: updates only install over the old version when they're signed with the same key. If it's missing, the build stops rather than signing with a new key. On another PC, copy it to the same place. (Android Studio's shared `~/.android/debug.keystore` was regenerated on 2026-10-06, which is why TubeClean no longer uses it.)
+Builds are signed with TubeClean's own key, `~/.android/tubeclean.keystore`: the Android debug key that signed 1.0 (SHA-256 `5C:CF:A4:61…`). Back that file up: updates only install over the old version when they're signed with the same key. If it's missing, the build stops rather than signing with a new key. On another PC, copy it to the same place. Its password isn't in the repo: put it in `~/.gradle/gradle.properties` as `tubeclean.keystorePassword=...` (or set `TUBECLEAN_KEYSTORE_PASSWORD`). Keep the key file and its backups private, since anyone with the file and password can sign updates that install over yours. (Android Studio's shared `~/.android/debug.keystore` was regenerated on 2026-10-06, which is why TubeClean no longer uses it.)
 
 1. On the Fire TV:
    1. Go to **Settings → My Fire TV → About** and click the device name 7 times. This turns on **Developer Options**.
@@ -160,8 +162,8 @@ The audit can't see traffic from outside the page, such as Android's DRM setup a
 | App | Extension |
 |---|---|
 | `AdBlocker.kt` | `declarativeNetRequest` rules generated from `adUrls`, `trackerUrls`, `signInUrls` and `neverBlock`. They only apply to requests made by YouTube pages, so the rest of Chrome is untouched. |
-| Document-start scripts | Content scripts in the page's own world: `rules.js`, `src/bridge-shim.js` and `prune.js` in every frame; `adskip.js` and `src/enforcement.js` in the top frame |
-| `TubeCleanBridge` | `src/bridge-shim.js` posts each call to `src/relay.js`, which passes it to the service worker (`src/background.js`) |
+| Document-start scripts | One content script per site in the page's own world (`page-youtube.js`, `page-tubi.js`, `page-pluto.js`), bundled by the build. The rules and the bridge are variables of the bundle, not properties of `window`, so sites can't see TubeClean or call it. |
+| `TubeCleanBridge` | `src/bridge-shim.js` sends each call to `src/relay.js` over a private link (an element never put in the page, handed over before the site's own scripts run), and relay.js passes it to the service worker (`src/background.js`). Sites can't fake the calls. |
 | `StatsStore.kt`, `HealthMonitor.kt` | `src/stats.js`, `src/health.js`, kept in `chrome.storage.local` |
 | ☰ stats screen, 🛡 badge, revision prompt | The toolbar popup. The icon's badge shows the ads blocked in the current video, or **!** when the rules need revising. |
 
@@ -215,6 +217,7 @@ After a rules revision, rebuild and click the extension's reload button. To shar
 - the stats and health ports
 - the Tubi blocker, fed ad lists in Tubi's own format (`tools/tubi.test.mjs`)
 - the Pluto blocker, fed playlists and schedules shaped like Pluto's (`tools/pluto.test.mjs`)
+- the page bundles: no TubeClean names on `window`, and the bridge only offers its private link
 
 **Revising for desktop:** inspect youtube.com with DevTools.
 - Desktop-only selectors (`ytd-*`) go in the `desktop` section of `rules.json`.
@@ -246,7 +249,7 @@ tools/extension-lib.mjs            desktop profile merge, rules.json -> declarat
 extension/manifest.json            Chrome extension manifest (matches and version filled in by the build)
 extension/src/background.js        service worker: stats, health, badge, guest-only wipe
 extension/src/guest.js             kept guest: 10-day renewal rule, sign-in cookie list
-extension/src/bridge-shim.js, relay.js   page-to-extension bridge (stands in for TubeCleanBridge)
+extension/src/bridge-shim.js, relay.js   private page-to-extension bridge (stands in for TubeCleanBridge)
 extension/src/enforcement.js       removes YouTube's anti-adblock dialog
 extension/src/tubi.js              Tubi: empties the ad list before the player reads it
 extension/tubi.json                Tubi's ad-service patterns (the extension's own rules file for Tubi)

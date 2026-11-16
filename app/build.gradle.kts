@@ -21,11 +21,19 @@ android {
         // TubeClean's own key, kept outside the repo: the Android debug key that signed 1.0 (SHA-256
         // 5C:CF:A4:61…). Sideloaded updates only install over it, so back the file up. Unlike
         // ~/.android/debug.keystore, a missing file stops the build instead of quietly making a new key.
+        // Its password isn't in the repo: set tubeclean.keystorePassword in ~/.gradle/gradle.properties
+        // (or TUBECLEAN_KEYSTORE_PASSWORD). The key is PKCS12, so the key password is the same.
         create("tubeclean") {
+            val password = providers.gradleProperty("tubeclean.keystorePassword")
+                .orElse(providers.environmentVariable("TUBECLEAN_KEYSTORE_PASSWORD"))
+                .orNull
+                ?: throw GradleException(
+                    "Set tubeclean.keystorePassword in ~/.gradle/gradle.properties (the TubeClean signing key's password)"
+                )
             storeFile = file("${System.getProperty("user.home")}/.android/tubeclean.keystore")
-            storePassword = "android"
+            storePassword = password
             keyAlias = "androiddebugkey"
-            keyPassword = "android"
+            keyPassword = password
         }
     }
 

@@ -1,16 +1,36 @@
 /*
- * Stands in for the app's TubeCleanBridge (@JavascriptInterface in MainActivity.kt) so prune.js and
- * adskip.js run unchanged. Runs in the page's own context before them; each call is posted to
- * relay.js, which passes it to the service worker. Like the app's bridge, calls carry counts or
- * problem codes only, never video details.
+ * Stands in for the app's TubeCleanBridge (MainActivity.kt) so prune.js and adskip.js run unchanged.
+ * Runs in the page's own context before them, inside the build's per-site bundle, so the bridge is a
+ * variable of that bundle rather than something on window that the site could see or call.
+ *
+ * Calls reach the service worker through relay.js over a private link: an element that is never put in
+ * the page, handed to relay.js before any of the site's scripts exist. The site can't get hold of it,
+ * so it can't listen to the calls or fake them. Like the app's bridge, calls carry counts or problem
+ * codes only, never video details.
  */
 (function () {
   'use strict';
   if (window.TubeCleanBridge) return;
-  var TYPE = 'tubeclean-bridge';
+
+  // Taken now, before the site's scripts run, so later changes to these by the site don't reach us.
+  var dispatch = EventTarget.prototype.dispatchEvent;
+  var listen = EventTarget.prototype.addEventListener;
+  var unlisten = EventTarget.prototype.removeEventListener;
+  var CustomEvt = CustomEvent;
+  var MouseEvt = MouseEvent;
+  var stringify = JSON.stringify;
+  var link = document.createElement('tubeclean-link');
+
+  // Whichever of this script and relay.js runs second completes the handshake.
+  var hello = function () {
+    try { dispatch.call(document, new MouseEvt('tubeclean-hello', { relatedTarget: link })); } catch (e) {}
+  };
+  listen.call(document, 'tubeclean-ready', hello);
+  listen.call(link, 'tubeclean-ack', function () { unlisten.call(document, 'tubeclean-ready', hello); });
+  hello();
 
   function send(method, args) {
-    try { window.postMessage({ type: TYPE, method: method, args: args }, location.origin); } catch (e) {}
+    try { dispatch.call(link, new CustomEvt('tubeclean-call', { detail: stringify({ method: method, args: args }) })); } catch (e) {}
   }
 
   var bridge = {
@@ -19,11 +39,11 @@
     adSkipped: function () { send('adSkipped', []); },
     playing: function (isPlaying) { send('playing', [!!isPlaying]); },
     health: function (code, detail) { send('health', [String(code), String(detail).slice(0, 200)]); },
-    // TV-only: guest auto-entry presses remote keys, and DRM exits go back a screen. Chrome on a
-    // laptop has neither a remote nor missing Widevine, so these do nothing.
     // YouTube asked this guest to "sign in to confirm you're not a bot" (adskip.js, once per video).
     botCheck: function () { showBotNote(); },
     homeReady: function () {}, // the app suggests a first video here; the extension doesn't
+    // TV-only: guest auto-entry presses remote keys, and DRM exits go back a screen. Chrome on a
+    // laptop has neither a remote nor missing Widevine, so these do nothing.
     remoteKey: function () {},
     noDrm: function () {},
     drmBlocked: function () {}
@@ -52,7 +72,5 @@
     document.body.appendChild(note);
   }
 
-  try {
-    Object.defineProperty(window, 'TubeCleanBridge', { value: Object.freeze(bridge) });
-  } catch (e) {}
+  window.TubeCleanBridge = Object.freeze(bridge);
 })();
