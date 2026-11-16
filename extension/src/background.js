@@ -3,7 +3,7 @@
  *  - receives bridge calls from the page scripts (counts and problem codes only)
  *  - keeps the 30-day stats and the health monitor in chrome.storage.local
  *  - shows ads blocked in the current video on the toolbar badge ("!" when the rules need revising)
- *  - Tubi: same counting and badge (src/tubi.js); no wipe, guest-only is a YouTube feature
+ *  - Tubi and Pluto: same counting and badge (src/tubi.js, src/pluto.js); no wipe, guest-only is a YouTube feature
  *  - guest only: wipes YouTube's site data when the last YouTube tab closes and when Chrome starts,
  *    keeping only its guest ID cookies for up to 10 days (src/guest.js), removes sign-in cookies,
  *    and keeps YouTube out of Chrome's history
@@ -28,9 +28,14 @@ const isYouTube = (url) => {
   }
 };
 
-const TUBI_HOSTS = ['tubitv.com', 'www.tubitv.com'];
-const isTubi = (url) => {
-  try { return TUBI_HOSTS.includes(new URL(url).hostname); } catch (e) { return false; }
+// Other sites TubeClean covers (counts and badge only; the wipe is a YouTube feature).
+const isOtherSite = (url) => {
+  try {
+    const host = new URL(url).hostname;
+    return host === 'tubitv.com' || host === 'www.tubitv.com' || host === 'pluto.tv' || host.endsWith('.pluto.tv');
+  } catch (e) {
+    return false;
+  }
 };
 
 // ---- Build metadata ---------------------------------------------------------------
@@ -233,8 +238,8 @@ chrome.tabs.onUpdated.addListener((tabId, change, tab) => {
     markYouTubeOpen();
     return;
   }
-  if (tab.url && isTubi(tab.url)) {
-    maybeWipe(); // a YouTube tab may have gone to Tubi
+  if (tab.url && isOtherSite(tab.url)) {
+    maybeWipe(); // a YouTube tab may have gone to Tubi or Pluto
     return;
   }
   withState((s) => {

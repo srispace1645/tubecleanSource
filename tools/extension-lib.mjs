@@ -52,6 +52,26 @@ export function dnrRules(rules) {
   return out;
 }
 
+/**
+ * Extra sites (Tubi, Pluto): one rule per site blocking its "blockDomains" (and their subdomains), only
+ * for requests that site's pages make. Ids continue after [startId].
+ */
+export function siteBlockRules(sites, startId) {
+  const out = [];
+  sites.forEach((site) => {
+    const domains = (site.blockDomains || []).map((d) => d.toLowerCase());
+    if (!domains.length) return;
+    const initiators = [...new Set(site.hosts.map((h) => h.replace(/^\*\./, '').replace(/^www\./, '')))];
+    out.push({
+      id: startId + out.length + 1,
+      priority: PRIORITY.ad,
+      action: { type: 'block' },
+      condition: { requestDomains: domains, initiatorDomains: initiators },
+    });
+  });
+  return out;
+}
+
 /** Chrome wants 1-4 dot-separated integers: "1.1" stays, anything else is cut down to its digits. */
 export function chromeVersion(versionName) {
   const parts = String(versionName).split('.').map((p) => parseInt(p, 10)).filter((n) => !isNaN(n));

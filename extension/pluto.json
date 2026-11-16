@@ -1,0 +1,18 @@
+{
+  "version": "2026.11.15-1",
+
+  "hosts": ["pluto.tv", "*.pluto.tv"],
+
+  "manifestUrlPattern": "/stitch/.*\\.mpd(\\?|$)",
+  "sessionUrlPattern": "/playout/.*session\\.json",
+  "episodeIdPattern": "/(?:episode|series|movie)/([0-9a-f]{24})/",
+  "adPeriodPattern": "_ad%2Fcreative|_ad/creative|/ad/creative",
+  "adClipType": "creative",
+
+  "blockDomains": [
+    "service-ad-image.prd.pluto.tv",
+    "doubleclick.net", "googlesyndication.com", "googleadservices.com", "amazon-adsystem.com",
+    "adnxs.com", "adsrvr.org", "fwmrm.net", "springserve.com", "spotxchange.com", "innovid.com",
+    "moatads.com", "tremorhub.com"
+  ]
+}

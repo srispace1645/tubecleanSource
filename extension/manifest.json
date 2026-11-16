@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TubeClean",
-  "description": "Ad-free YouTube (guest only, no history) and ad-free Tubi. Strips ads from the video data before the player sees them.",
+  "description": "Ad-free YouTube (guest only, no history), Tubi and Pluto TV. Strips ads from the video data before the player sees them.",
   "version": "0",
   "minimum_chrome_version": "111",
   "icons": {
@@ -95,6 +95,29 @@
         "src/relay.js"
       ],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "<pluto>"
+      ],
+      "js": [
+        "pluto-rules.js",
+        "src/bridge-shim.js",
+        "src/pluto.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "<pluto>"
+      ],
+      "js": [
+        "src/relay.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
     }
   ]
 }

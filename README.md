@@ -155,7 +155,7 @@ The audit can't see traffic from outside the page, such as Android's DRM setup a
 
 ## Chrome extension (laptops)
 
-`extension/` brings the same blocking to desktop **www.youtube.com** in Chrome, or any Chromium browser such as Edge, and also blocks ads on **tubitv.com** (see Tubi below). It runs the app's own `prune.js` and `adskip.js` with the `desktop` section of `rules.json`, so a single rules revision fixes the app and the extension together.
+`extension/` brings the same blocking to desktop **www.youtube.com** in Chrome, or any Chromium browser such as Edge, and also blocks ads on **tubitv.com** and **pluto.tv** (see Tubi and Pluto TV below). It runs the app's own `prune.js` and `adskip.js` with the `desktop` section of `rules.json`, so a single rules revision fixes the app and the extension together.
 
 | App | Extension |
 |---|---|
@@ -183,6 +183,16 @@ The audit can't see traffic from outside the page, such as Android's DRM setup a
 - Tubi gets the same counts and badge as YouTube. It doesn't get guest mode or the wipe: those are YouTube-only.
 - Tubi's patterns live in `extension/tubi.json`, since the app doesn't cover Tubi.
 - If Tubi changes how it fetches ads, the popup shows `TUBI_CHANGED` and names the key to fix. Inspect the player's requests with DevTools, edit `tubi.json`, bump its `"version"` and rebuild.
+- Requests from Tubi pages to known ad networks and Tubi's ad servers (`blockDomains` in `tubi.json`) are refused.
+
+**Pluto TV (pluto.tv), on-demand titles.** Pluto stitches its ads into the video. A title's playlist (a DASH `.mpd` file) lists the movie in pieces, with ad pieces in between. A separate schedule (`session.json`) drives the player's ad countdown and locks its controls during a break.
+- `src/pluto.js` removes the ad pieces from both, and re-times the movie's own pieces to follow each other, so the movie plays straight through. Tested on *The Ring*: 46–51 ads, about 22 minutes, were removed from a 2 h 17 min stream.
+- Live channels are left alone.
+- Requests from Pluto pages to known ad networks and its pause-screen ad images (`blockDomains` in `pluto.json`) are refused.
+- Counts and badge work as for Tubi; there's no guest mode or wipe.
+- If Pluto changes its playlist or schedule format, the popup shows `PLUTO_CHANGED`. Edit `extension/pluto.json`, bump its `"version"` and rebuild.
+
+This replaces the separate "Tubi, Pluto & YouTube Ad Blocker" extension. Don't run both: that one blocks YouTube's bot check (`api/stats/atr`), which makes YouTube ask you to sign in.
 
 The extension doesn't work in the DuckDuckGo browser, which doesn't support extensions; use Chrome or Edge.
 
@@ -204,6 +214,7 @@ After a rules revision, rebuild and click the extension's reload button. To shar
 - the desktop profile
 - the stats and health ports
 - the Tubi blocker, fed ad lists in Tubi's own format (`tools/tubi.test.mjs`)
+- the Pluto blocker, fed playlists and schedules shaped like Pluto's (`tools/pluto.test.mjs`)
 
 **Revising for desktop:** inspect youtube.com with DevTools.
 - Desktop-only selectors (`ytd-*`) go in the `desktop` section of `rules.json`.
@@ -239,5 +250,7 @@ extension/src/bridge-shim.js, relay.js   page-to-extension bridge (stands in for
 extension/src/enforcement.js       removes YouTube's anti-adblock dialog
 extension/src/tubi.js              Tubi: empties the ad list before the player reads it
 extension/tubi.json                Tubi's ad-service patterns (the extension's own rules file for Tubi)
+extension/src/pluto.js             Pluto TV: removes ad pieces from on-demand playlists and the player schedule
+extension/pluto.json               Pluto's playlist patterns and ad domains
 extension/popup.*                  toolbar popup: stats, 30-day chart, revision banner
 ```

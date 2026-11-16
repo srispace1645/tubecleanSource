@@ -1,5 +1,5 @@
 {
-  "version": "2026.10.09-1",
+  "version": "2026.11.15-1",
 
   "hosts": ["tubitv.com", "www.tubitv.com"],
 
@@ -14,5 +14,12 @@
 
   "watchPathPattern": "^/(movies|tv-shows|series)/",
   "minContentSeconds": 600,
-  "noDecisionProbeSeconds": 30
+  "noDecisionProbeSeconds": 30,
+
+  "blockDomains": [
+    "ark.tubi.video", "ads.production-public.tubi.io", "extremereach.io", "adsafeprotected.com",
+    "doubleclick.net", "googlesyndication.com", "googleadservices.com", "amazon-adsystem.com",
+    "adnxs.com", "adsrvr.org", "fwmrm.net", "springserve.com", "spotxchange.com", "innovid.com",
+    "moatads.com", "tremorhub.com"
+  ]
 }
